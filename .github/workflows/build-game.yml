@@ -1,0 +1,34 @@
+name: Build game
+on:
+  push:
+    branches: [main]
+    paths:
+      - game-source.js
+      - page-template.html
+      - build.cjs
+      - package.json
+      - package-lock.json
+      - .github/workflows/build-game.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Commit rebuilt page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Build updated game page"
+            git push
+          fi
