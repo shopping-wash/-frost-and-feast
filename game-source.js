@@ -116,12 +116,13 @@ function resetResource(b,initial=false,i=0){if(state.stage===0||state.stage===1)
 function assignWorkers(){
 const roles=[];const slots=[];
 for(let i=1;i<p.grills;i++)slots.push('cook');
-for(let i=1;i<p.shops;i++)slots.push('vendor');
+if(!buildingOwned('market'))for(let i=0;i<p.shops;i++)slots.push('vendor');
 for(let i=0;i<p.workers.length;i++){
 let role;
 if(i===0)role='hunter';
 else if(i===1)role='cook';
 else if(i===2)role=buildingOwned('kitchen')?'hunter':'carrier';
+else if(i===3&&!buildingOwned('market')){const v=slots.indexOf('vendor');if(v>=0)slots.splice(v,1);role='vendor'}
 else if(slots.length){const pick=Math.floor(Math.random()*slots.length);role=slots.splice(pick,1)[0]}
 else role='hunter';
 roles.push(role);
@@ -213,7 +214,7 @@ walk(w,st.x,st.z+1.5,dt,3.7);
 if(distance(w,st.x,st.z)<2.4){u.swing=.24;u.workTime=(u.workTime||0)+dt}
 }else if(u.role==='vendor'){const vendors=workers.filter(q=>q.userData.role==='vendor'),idx=vendors.indexOf(w),st=stations.filter(q=>q.kind==='shop')[idx%p.shops];walk(w,st.x,st.z-1.7,dt,3.7);if(distance(w,st.x,st.z)<2.4){u.swing=.28;u.workTime=(u.workTime||0)+dt;if(p.cash>0&&u.workTime>.9){const amount=p.cash;p.cash=0;state.money+=amount;u.workTime=0;burst(st.x,1.7,st.z,0x7be45b,5)}}}}}
 function production(dt){let chefs=workers.filter(w=>w.userData.role==='cook'&&distance(w,-4,0)<9).length;let boost=stations.some(s=>s.kind==='grill'&&distance(player,s.x,s.z)<2.3)?1.4:1;cookClock+=dt*(1+p.speed*.45)*p.grills*(1+chefs*.6)*boost*(buildingOwned('factory')?3:1);while(cookClock>=.65){cookClock-=.65;if(p.raw>0){p.raw--;p.cooked++;if(distance(player,-4,0)<4)sfx('cook')}else{cookClock=0;break}}
-let sellers=workers.filter(w=>w.userData.role==='vendor').length;sellClock+=dt*p.shops*(1+sellers*.35);while(sellClock>=.55){sellClock-=.55;if(p.stock>0){ensureShopStocks();const available=p.shopStocks.findIndex(n=>n>0);if(available<0){p.stock=0;break}p.shopStocks[available]--;p.stock--;p.cash+=cfg.price;p.sold+=cfg.price;const c=customers.shift();if(c){c.userData.exit=true;leaving.push(c);const nc=human([0x9b7668,0x6b8d86,0xc59b65][Math.floor(rand(0,3))]);nc.position.set(11+rand(0,3),0,19);customers.push(nc);actors.add(nc)}if(distance(player,4,5.5)<6)sfx('sale');if(p.sold>=cfg.goal&&state.unlocked===state.stage&&state.stage<4){state.unlocked++;toast('目標達成！ 地図から次の事業へ');sfx('clear');save()}}else{sellClock=0;break}}
+let sellers=workers.filter(w=>w.userData.role==='vendor'&&stations.some(st=>st.kind==='shop'&&distance(w,st.x,st.z)<2.6)).length;const manualCashier=stations.some(st=>st.kind==='shop'&&distance(player,st.x,st.z)<2.8);const checkoutActive=buildingOwned('market')||sellers>0||manualCashier;sellClock+=dt*p.shops*(1+sellers*.35)*(buildingOwned('market')?2.5:1);if(!checkoutActive)sellClock=0;while(checkoutActive&&sellClock>=.55){sellClock-=.55;if(p.stock>0){ensureShopStocks();const available=p.shopStocks.findIndex(n=>n>0);if(available<0){p.stock=0;break}p.shopStocks[available]--;p.stock--;p.cash+=cfg.price;p.sold+=cfg.price;const c=customers.shift();if(c){c.userData.exit=true;leaving.push(c);const nc=human([0x9b7668,0x6b8d86,0xc59b65][Math.floor(rand(0,3))]);nc.position.set(11+rand(0,3),0,19);customers.push(nc);actors.add(nc)}if(distance(player,4,5.5)<6)sfx('sale');if(p.sold>=cfg.goal&&state.unlocked===state.stage&&state.stage<4){state.unlocked++;toast('目標達成！ 地図から次の事業へ');sfx('clear');save()}}else{sellClock=0;break}}
 for(const s of stations.filter(s=>s.kind==='grill')){s.g.userData.flames.forEach((f,i)=>{f.visible=p.raw>0;f.scale.y=.25+Math.sin(t*12+i)*.14});s.g.userData.fire.intensity=p.raw>0?1:0}
 }
 function updateBears(dt){for(const b of bears){const u=b.userData;u.hitTime=Math.max(0,(u.hitTime||0)-dt);if(u.body){const impact=u.hitTime/.16;u.body.scale.set(1+impact*.12,1-impact*.15,1+impact*.12)}if(state.stage<=1){u.turn-=dt;if(u.turn<=0){u.target.set(clamp(b.position.x+rand(-3,3),-9,9),0,clamp(b.position.z+rand(-2,2),-17,-7));u.turn=rand(2,5)}walk(b,u.target.x,u.target.z,dt,state.stage===0?.5:.8);if(u.legs)u.legs.forEach((l,i)=>l.position.y=.34+Math.sin(t*4+i*Math.PI)*.06);if(u.bar){u.bar.quaternion.copy(camera.quaternion)}}else if(state.stage===3){b.rotation.y=Math.sin(t*.5+u.seed);b.position.y=Math.abs(Math.sin(t*3+u.seed))*.035}else if(state.stage===4)b.rotation.y=Math.sin(t*.3+u.seed)*.2}}
