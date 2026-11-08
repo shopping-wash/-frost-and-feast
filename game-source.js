@@ -26,7 +26,7 @@ function fence(x,z,rot=0){const g=new T.Group();g.position.set(x,0,z);g.rotation
 function station(x,z,index,kind){const g=new T.Group();g.position.set(x,0,z);world.add(g);const col=kind==='grill'?0xc29558:0xcba36b;box(g,0x957349,0,.11,0,3.0,.22,2.3);for(const a of [-1,1])for(const b of [-.6,.6])box(g,0x815b3c,a,.63,b,.19,1.15,.19);box(g,col,0,1.18,0,2.8,.22,1.6,true);if(kind==='grill'){const pan=mesh(g,'cyl',0x3b494a,-.35,1.35,0,.77,.15,.66);for(let i=0;i<7;i++)box(g,0x89928b,-.94+i*.2,1.45,0,.055,.05,1.07);const fire=new T.PointLight(0xff8c32,0,5);fire.position.set(-.4,1.8,0);g.add(fire);const flames=[];for(let i=0;i<3;i++)flames.push(mesh(g,'cone',0xffb44e,-.65+i*.3,1.66,0,.13,.5,.13));g.userData.flames=flames;g.userData.fire=fire;box(g,0xf8ebd0,1,1.35,0,.48,.13,.65);if(state.stage===1){box(g,0x516b72,-.35,1.9,-.42,1.4,1.2,.5);box(g,0x374c52,-.35,2.7,-.42,.35,.5,.35)}if(state.stage===2||state.stage===3){mesh(g,'cyl',state.stage===2?0xb87841:0xd8c69a,-.35,1.7,0,.65,.5,.65);mesh(g,'cyl',0xe6ac57,-.35,1.97,0,.55,.03,.55)}if(state.stage===4){mesh(g,'cyl',0xbacbcc,-.35,1.9,0,.6,1.1,.6);mesh(g,'cone',0xe3eded,-.35,2.5,0,.65,.23,.65);box(g,0x5f9296,.35,1.9,0,.3,.15,.15)}}else{for(const a of [-1.27,1.27])box(g,0x795439,a,2.0,-.53,.14,2,.14);box(g,0x346f69,0,2.95,0,3.15,.16,1.9,true);for(let i=0;i<6;i++)box(g,i%2?0xf3e7c8:0x4e8a7d,-1.3+i*.52,2.85,.8,.5,.35,.18);box(g,0x345351,.85,1.42,0,.55,.3,.45);box(g,0xf3e6bb,.85,1.58,.05,.43,.04,.30)}stations.push({g,x,z,kind,index});return g}
 // A separate upgrade plaza: staff use the northern service lane; customers stay east.
 const PAD_RADIUS=1.25, NPC_PAD_CLEARANCE=1.95;
-const upgradeDefs=[['power','狩猟力',64,-8,5.6],['capacity','運搬力',48,-4,5.6],['workers','仲間を雇う',80,0,5.6],['speed','調理速度',72,-8,9.8],['grills','調理台を増設',140,-4,9.8],['shops','売店を増設',170,0,9.8],['land','拠点を拡張',5000,-4,14]];
+const upgradeDefs=[['power','狩猟力',64,-8,5.6],['capacity','運搬力',48,-4,5.6],['workers','仲間を雇う',80,0,5.6],['speed','調理速度',72,-8,9.8],['grills','調理台を増設',140,-4,9.8],['shops','売店を増設',170,0,9.8],['land','拠点を拡張',1250,-4,14]];
 const PAD_STYLE={power:0xf24c51,capacity:0x2599ef,workers:0x9b5ae1,speed:0xff9c26,grills:0xed6350,shops:0x24b88d,land:0x44bfcf};
 function strokePath(ctx,points,close=false){ctx.beginPath();ctx.moveTo(...points[0]);for(const pt of points.slice(1))ctx.lineTo(...pt);if(close)ctx.closePath();ctx.stroke()}
 function drawUpgradeIcon(ctx,key){ctx.strokeStyle='#ffffff';ctx.fillStyle='#ffffff';ctx.lineWidth=14;ctx.lineCap='round';ctx.lineJoin='round';const line=p=>strokePath(ctx,p);const round=(x,y,w,h,r)=>{ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.stroke()};const plus=(x,y)=>{line([[x-19,y],[x+19,y]]);line([[x,y-19],[x,y+19]])};
@@ -140,8 +140,30 @@ function transfer(a,dt){const u=a.userData;u.transfer=(u.transfer||0)-dt;if(u.tr
 function buy(pad){const d=pad.d;if(maxed(d[0])||state.money<price(d))return false;state.money-=price(d);if(d[0]==='workers'){p.workers.push('hunter');addWorker('hunter');assignWorkers()}else p[d[0]]++;if(d[0]==='grills'){assignWorkers();const i=p.grills-1;const g=station(-4-i*3,0,i,'grill');g.scale.setScalar(.01);builds.push({g,age:0})}if(d[0]==='shops'){ensureShopStocks();assignWorkers();const i=p.shops-1;const g=station(4+(i===1?3.2:0),5.5+(i===2?4:0),i,'shop');g.scale.setScalar(.01);builds.push({g,age:0});for(let j=0;j<3;j++){const c=human(0x9c8270);c.position.set(10+j,0,18);customers.push(c);actors.add(c)}}if(d[0]==='land'){const ext=box(world,0xc4a77c,-11-p.land,0,4,3,.2,17);ext.scale.y=.01;builds.push({g:ext,age:0,flat:true});for(let k=0;k<5;k++)tree(-16-p.land*2,-3+k*3,.8)}if(d[0]==='power'||d[0]==='workers'){const desired=24+p.power*3+p.workers.filter(r=>r==='hunter').length*4;while(bears.length<desired){const b=resource(state.stage,bears.length);resetResource(b,true,bears.length);bears.push(b);actors.add(b)}}burst(d[3],1,d[4],0xffd886,25);sfx('buy');toast(d[1]+'！');upgradeCelebration(pad);updatePadLabels();save();return true}
 function updateWorkers(dt){for(const w of workers){const u=w.userData;if(u.role==='hunter'){if(u.raw>=10+p.capacity*4||u.phase==='deliver'){u.phase='deliver';walk(w,-4,1.7,dt,3.8);transfer(w,dt);if(u.raw===0)u.phase='gather'}else{let b=bears.reduce((a,b)=>distance(w,a.position.x,a.position.z)<distance(w,b.position.x,b.position.z)?a:b);walk(w,b.position.x,b.position.z,dt,3.6);gather(w,dt)}}else if(u.role==='carrier'){
 const grill=stations.find(q=>q.kind==='grill');
-if(u.cooked>0){u.phase='sell';const shop=chooseShopForDelivery();walk(w,shop.x,shop.z-1.6,dt,4.2);transfer(w,dt)}
-else{u.phase='load';walk(w,grill.x+1.4,grill.z+1.2,dt,4.2);transfer(w,dt)}
+const cap=24+p.capacity*8;
+if(u.cooked>0){
+u.phase='sell';
+if(u.deliveryShop===undefined||u.deliveryShop>=p.shops)u.deliveryShop=chooseShopForDelivery().index;
+const shop=stations.filter(q=>q.kind==='shop')[u.deliveryShop];
+walk(w,shop.x,shop.z-1.6,dt,4.8);
+if(distance(w,shop.x,shop.z)<2.8){
+ensureShopStocks();
+const amount=Math.min(u.cooked,Math.max(1,Math.ceil(u.cooked/Math.max(1,p.shops))));
+u.cooked-=amount;p.shopStocks[shop.index]+=amount;p.stock+=amount;
+burst(shop.x,1.5,shop.z,0xffcc6b,5);
+u.deliveryShop=chooseShopForDelivery().index;
+if(u.cooked===0)u.phase='load';
+}
+}else{
+u.phase='load';
+walk(w,grill.x+1.4,grill.z+1.2,dt,4.8);
+if(distance(w,grill.x,grill.z)<2.8&&p.cooked>0){
+const amount=Math.min(cap,p.cooked);
+p.cooked-=amount;u.cooked+=amount;
+u.deliveryShop=chooseShopForDelivery().index;
+burst(grill.x,1.5,grill.z,0xffcc6b,5);
+}
+}
 }else if(u.role==='cook'){
 const cooks=workers.filter(q=>q.userData.role==='cook'),idx=cooks.indexOf(w);
 const st=stations.filter(q=>q.kind==='grill')[idx%p.grills];
