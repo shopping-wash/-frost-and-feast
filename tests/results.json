@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-08",
+  "method": "Node simulation using production game logic and Three.js scene geometry; renderer/DOM/audio stubbed. Not a browser or device pass.",
+  "results": [
+    {
+      "name": "Initial population: 24 bears and 15 customers",
+      "status": "PASS"
+    },
+    {
+      "name": "Screen swipe directions and release",
+      "status": "PASS"
+    },
+    {
+      "name": "Repeated hunting instantly replaces bears and fills cargo",
+      "status": "PASS"
+    },
+    {
+      "name": "Deposit, automatic cooking, pick up, sale and cash collection",
+      "status": "PASS"
+    },
+    {
+      "name": "Auto purchase charges once per entry; price increases",
+      "status": "PASS"
+    },
+    {
+      "name": "Hire and assign all four roles; automatic production chain",
+      "status": "PASS"
+    },
+    {
+      "name": "Goals unlock next stage",
+      "status": "PASS"
+    },
+    {
+      "name": "All equipment upgrades and visible additions",
+      "status": "PASS"
+    },
+    {
+      "name": "3D instanced product and cash piles reflect inventory",
+      "status": "PASS"
+    },
+    {
+      "name": "Save includes money, roles, equipment, unlocked stages and cargo",
+      "status": "PASS"
+    },
+    {
+      "name": "Five stage environments and separate progression",
+      "status": "PASS"
+    },
+    {
+      "name": "Reload restores a previously saved game",
+      "status": "PASS"
+    },
+    {
+      "name": "Reset restores initial economy and stages",
+      "status": "PASS"
+    },
+    {
+      "name": "Every hunting level increases attack rate; higher tiers gain weapons and effects",
+      "status": "PASS"
+    },
+    {
+      "name": "Maximum hunting hits multiple bears and respects cargo capacity",
+      "status": "PASS"
+    },
+    {
+      "name": "All seven pads have distinct colors and clear all expanded shops and grills",
+      "status": "PASS"
+    },
+    {
+      "name": "NPC movement cannot cross upgrade pads",
+      "status": "PASS"
+    }
+  ]
+}
