@@ -1,0 +1,23 @@
+{
+  "name": "FROST & FEAST 雪原の商店",
+  "short_name": "雪原の商店",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#193b40",
+  "theme_color": "#193b40",
+  "icons": [
+    {
+      "src": "./bear-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./bear-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
