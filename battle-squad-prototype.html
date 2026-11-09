@@ -1,0 +1,86 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>雪原の商店｜戦闘部隊 3D試作</title><style>*{box-sizing:border-box}body{margin:0;background:#102233;color:#eef7ff;font-family:system-ui,-apple-system;overflow:hidden}canvas{display:block;touch-action:none}.top{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 12px) 15px 22px;background:linear-gradient(#081725ed,transparent);pointer-events:none}h1{font-size:17px;margin:0 0 4px}.top small{color:#c9d8e4;font-size:11px}.bottom{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 12px);left:9px;right:9px;display:flex;justify-content:center;gap:7px;flex-wrap:wrap}button{font-size:12px;font-weight:700;padding:12px 13px;color:#eaf6ff;background:#163d5bdc;border:1px solid #80a6c2;border-radius:10px}button.on{background:#c2e5fa;color:#102b42}.status{position:fixed;top:calc(env(safe-area-inset-top) + 73px);left:12px;max-width:260px;font-size:11px;line-height:1.6;background:#071725b8;border:1px solid #8ea9bc55;padding:9px;border-radius:9px;pointer-events:none}#error{display:none;position:fixed;inset:0;background:#132638;color:white;place-items:center;padding:20px;text-align:center}</style></head><body><div class="top"><h1>❄ 雪原の商店 — 戦闘部隊 3D試作</h1><small>盾兵・弓兵・剣士 vs 敵軍 / 独立デモ</small></div><div class="status" id="status">部隊が交戦中<br>画面をドラッグして視点変更</div><div class="bottom"><button class="on" data-mode="battle">⚔ 自動戦闘</button><button data-mode="shield">🛡 盾兵</button><button data-mode="archer">🏹 弓兵</button><button data-mode="enemy">☠ 敵兵</button><button data-mode="all">全軍を見る</button></div><div id="error">3Dを読み込めませんでした。通信環境を確認してください。</div><script type="module">
+import * as T from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
+try{
+const scene=new T.Scene();scene.background=new T.Color(0x90aaba);scene.fog=new T.Fog(0x90aaba,22,65);
+const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;document.body.prepend(renderer.domElement);
+const camera=new T.PerspectiveCamera(42,innerWidth/innerHeight,.1,100);
+scene.add(new T.HemisphereLight(0xe8f6ff,0x384453,2.1));const sun=new T.DirectionalLight(0xfff0db,3.4);sun.position.set(-8,13,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-17;sun.shadow.camera.right=17;sun.shadow.camera.top=17;sun.shadow.camera.bottom=-17;scene.add(sun);const rim=new T.DirectionalLight(0x8ed4ff,1.8);rim.position.set(6,6,-9);scene.add(rim);
+const mat=(c,metal=0,rough=.75)=>new T.MeshStandardMaterial({color:c,metalness:metal,roughness:rough,side:T.DoubleSide});
+const P={snow:mat(0xe9f2f5),stone:mat(0x7a8995),dark:mat(0x263747,.72,.4),silver:mat(0xc1d2de,.88,.25),steel:mat(0x8499a8,.85,.33),blue:mat(0x215487),blue2:mat(0x467bb1,.25,.5),red:mat(0x782b34),red2:mat(0xa44743,.2,.55),black:mat(0x26252c,.7,.38),fur:mat(0xd4d0c7),gold:mat(0xc9ad75,.75,.3),wood:mat(0x544337),skin:mat(0xb99b80)};
+const G={box:new T.BoxGeometry(1,1,1),ball:new T.SphereGeometry(1,14,10)};
+function part(p,g,m,x,y,z,sx=1,sy=1,sz=1){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=true;o.receiveShadow=true;p.add(o);return o}
+function box(p,m,x,y,z,a,b,c){return part(p,G.box,m,x,y,z,a,b,c)}
+function ball(p,m,x,y,z,a,b,c){return part(p,G.ball,m,x,y,z,a,b,c)}
+function cyl(p,m,x,y,z,r,h){return part(p,new T.CylinderGeometry(r,r,h,10),m,x,y,z)}
+function rod(p,m,a,b,r){const d=new T.Vector3().subVectors(b,a);const o=part(p,new T.CylinderGeometry(r,r,d.length(),8),m,(a.x+b.x)/2,(a.y+b.y)/2,(a.z+b.z)/2);o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.normalize());return o}
+part(scene,new T.PlaneGeometry(100,100),P.snow,0,-.03,0).rotation.x=-Math.PI/2;
+for(let i=0;i<32;i++){let x=Math.sin(i*31.6)*22,z=Math.cos(i*17.8)*21-4;if(Math.abs(x)<9&&Math.abs(z)<8)continue;cyl(scene,P.wood,x,.65,z,.15,1.3);part(scene,new T.ConeGeometry(1,2.7,7),P.dark,x,2,z);part(scene,new T.ConeGeometry(.78,1.9,7),P.snow,x,2.7,z)}
+for(let i=-8;i<=8;i++){box(scene,P.stone,i*1.6,1.8,-15,1.55,3.6,1.4);box(scene,P.stone,i*1.6,4,-15,1.1,.7,1.6)}for(let x of [-13.5,13.5]){cyl(scene,P.stone,x,3,-15,2.1,6);cyl(scene,P.dark,x,6.2,-15,2.5,.6)}
+const soldiers=[];
+function soldier(team,type,x,z,phase){
+ const root=new T.Group();root.position.set(x,0,z);scene.add(root);
+ const torso=new T.Group();torso.position.y=1.2;root.add(torso);
+ const armor=team==='blue'?P.blue:P.red,trim=team==='blue'?P.blue2:P.red2,iron=team==='blue'?P.silver:P.dark;
+ box(torso,P.wood,0,-.15,0,.72,.48,.46);ball(torso,P.steel,0,.55,0,.52,.66,.36);box(torso,armor,0,.58,.35,.72,.78,.08);box(torso,iron,0,.6,.43,.1,.59,.09);
+ for(let s of [-1,1]){box(torso,P.gold,s*.26,.57,.42,.045,.67,.04).rotation.z=s*.24;ball(torso,iron,s*.6,.92,0,.28,.23,.29)}
+ ball(torso,P.fur,0,1.09,0,.52,.15,.43);ball(torso,iron,0,1.42,0,.31,.39,.32);box(torso,iron,0,1.39,.31,.38,.29,.09);box(torso,P.dark,0,1.47,.35,.31,.08,.05);part(torso,new T.ConeGeometry(.14,.45,6),trim,0,1.92,-.07);
+ const cape=box(torso,armor,0,.18,-.37,.86,1.38,.09);cape.rotation.x=.12;
+ const legs=[];for(let s of [-1,1]){const hip=new T.Group();hip.position.set(s*.26,-.39,0);torso.add(hip);box(hip,P.dark,0,-.39,0,.28,.79,.31);box(hip,iron,0,-.83,.07,.31,.48,.34);box(hip,P.dark,0,-1.09,.19,.32,.16,.5);legs.push(hip)}
+ const arms=[];for(let s of [-1,1]){const shoulder=new T.Group();shoulder.position.set(s*.65,.9,0);torso.add(shoulder);box(shoulder,iron,s*.06,-.31,0,.28,.68,.31);const elbow=new T.Group();elbow.position.set(s*.07,-.62,0);shoulder.add(elbow);box(elbow,P.dark,0,-.23,.05,.24,.49,.27);ball(elbow,P.wood,0,-.49,.05,.15,.15,.15);arms.push({shoulder,elbow})}
+ const right=arms[1],left=arms[0];let weapon,shield=null,bow=null,arrow=null;
+ if(type==='archer'){
+   bow=new T.Group();left.elbow.add(bow);bow.position.set(0,-.55,.25);
+   const pts=[];for(let i=0;i<=20;i++){const y=(i/20-.5)*2;pts.push(new T.Vector3(Math.sin(i/20*Math.PI)*.38,y,0))}
+   const curve=new T.CatmullRomCurve3(pts);part(bow,new T.TubeGeometry(curve,20,.038,6,false),P.wood,0,0,0);rod(bow,P.silver,new T.Vector3(0,-1,0),new T.Vector3(0,1,0),.012);
+   arrow=new T.Group();torso.add(arrow);rod(arrow,P.wood,new T.Vector3(0,0,0),new T.Vector3(0,0,1.25),.025);part(arrow,new T.ConeGeometry(.09,.22,4),P.silver,0,0,1.28).rotation.x=Math.PI/2;
+ }else{
+   weapon=new T.Group();right.elbow.add(weapon);weapon.position.set(0,-.54,.13);
+   cyl(weapon,P.wood,0,-.2,0,.07,.42);box(weapon,P.gold,0,.05,0,.45,.09,.14);box(weapon,P.silver,0,.67,0,.12,1.18,.07);part(weapon,new T.ConeGeometry(.09,.25,4),P.silver,0,1.37,0);
+ }
+ if(type==='shield'||type==='sword'){
+   shield=new T.Group();left.elbow.add(shield);shield.position.set(0,-.42,.3);
+   box(shield,P.wood,0,0,0,.78,1.06,.11);box(shield,armor,0,0,.07,.7,.99,.07);for(let s of [-1,1])box(shield,iron,s*.34,0,.13,.08,1.04,.09);box(shield,iron,0,.48,.13,.74,.08,.1);ball(shield,P.gold,0,0,.18,.17,.17,.08)
+ }
+ const slash=new T.Mesh(new T.TorusGeometry(1.05,.045,5,35,Math.PI*1.2),new T.MeshBasicMaterial({color:team==='blue'?0x8bdfff:0xff6d56,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending}));root.add(slash);slash.position.set(0,2,.7);slash.rotation.z=-.6;slash.visible=false;
+ soldiers.push({root,torso,legs,arms,type,team,x,z,phase,slash,cape,arrow,shield,weapon});
+}
+soldier('blue','shield',-4.2,1,0);soldier('blue','sword',-2.1,2,.9);soldier('blue','archer',-5.8,3,1.6);soldier('blue','archer',-6.6,1,2.7);
+soldier('red','shield',3.6,-1,.5);soldier('red','sword',1.6,-.3,1.2);soldier('red','sword',5.4,.5,2.3);soldier('red','archer',5.8,-2,3.2);
+let mode='battle',angle=.3,zoom=1,drag=null,clock=new T.Clock(),elapsed=0;
+const modes={battle:'自動戦闘：両軍が攻撃・防御・射撃を繰り返します',shield:'盾兵：盾を構え、剣で反撃します',archer:'弓兵：弓を引き、矢を放ちます',enemy:'敵兵：赤黒の鎧と剣撃を確認できます',all:'全軍：8人の兵士を表示しています'};
+document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('on',x===b));document.getElementById('status').textContent=modes[mode]+'\nドラッグ：視点回転'}));
+const canvas=renderer.domElement;canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!drag)return;angle+=(e.clientX-drag.x)*.007;zoom=Math.max(.6,Math.min(1.8,zoom+(e.clientY-drag.y)*.003));drag={x:e.clientX,y:e.clientY}});canvas.addEventListener('pointerup',()=>drag=null);window.addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
+function animate(){
+ requestAnimationFrame(animate);elapsed+=Math.min(clock.getDelta(),.05);
+ for(const s of soldiers){
+  const t=elapsed+s.phase,cycle=t%3.2,attack=cycle>1.05&&cycle<1.8,guard=cycle>1.8&&cycle<2.45;
+  s.root.visible=mode==='battle'||mode==='all'||(mode==='shield'&&s.type==='shield')||(mode==='archer'&&s.type==='archer')||(mode==='enemy'&&s.team==='red');
+  s.root.rotation.y=s.team==='blue'?Math.PI/2:-Math.PI/2;
+  const step=Math.sin(t*4.5)*.15;s.legs[0].rotation.x=step;s.legs[1].rotation.x=-step;
+  s.root.position.x=s.x+Math.sin(t*.8)*.24;s.root.position.z=s.z+Math.sin(t*.6)*.16;
+  s.torso.position.y=1.2+Math.sin(t*2.2)*.025;
+  s.torso.rotation.y=attack?Math.sin((cycle-1.05)/.75*Math.PI)*.4:0;
+  s.cape.rotation.x=.1+Math.sin(t*3)*.06;
+  s.slash.visible=false;s.slash.material.opacity=0;
+  if(s.type==='archer'){
+   const draw=attack?Math.sin((cycle-1.05)/.75*Math.PI):.15;
+   s.arms[0].shoulder.rotation.x=-.9;s.arms[1].shoulder.rotation.x=-.7-draw*.65;
+   s.arms[0].shoulder.rotation.z=-.25;s.arms[1].shoulder.rotation.z=.2;
+   s.arrow.visible=attack&&cycle<1.6;
+   s.arrow.position.set(.2,1.88,.58);s.arrow.rotation.set(0,0,0);
+  }else{
+   const phase=attack?(cycle-1.05)/.75:0;
+   const wind=attack?Math.min(1,phase*2.5):0,cut=attack?Math.max(0,Math.min(1,(phase-.4)*3)):0;
+   s.arms[1].shoulder.rotation.x=attack?-1.3*wind+2*cut:-.15;
+   s.arms[1].shoulder.rotation.z=attack?-.95*wind+1.5*cut:.06;
+   s.arms[1].elbow.rotation.x=attack?-.75*wind+.95*cut:.15;
+   s.arms[0].shoulder.rotation.x=guard?-.85:-.65;s.arms[0].shoulder.rotation.z=guard?-.35:-.2;
+   if(attack&&phase>.42&&phase<.75){s.slash.visible=true;s.slash.material.opacity=.7*Math.sin((phase-.42)/.33*Math.PI);s.slash.rotation.z=-1.3+(phase-.42)*3}
+  }
+ }
+ const focus=mode==='shield'?[-3.2,1]:mode==='archer'?[-5.8,1]:mode==='enemy'?[3.5,-.5]:[0,0];
+ const dist=(innerWidth<650?17:14)*zoom;camera.position.set(focus[0]+Math.sin(angle)*dist,dist*.43+2,focus[1]+Math.cos(angle)*dist);camera.lookAt(focus[0],1.45,focus[1]);renderer.render(scene,camera);
+}animate();
+window.battlePrototypeDiagnostics=()=>({mode,soldiers:soldiers.length,renderCalls:renderer.info.render.calls});
+}catch(e){console.error(e);document.getElementById('error').style.display='grid'}
+</script></body></html>
