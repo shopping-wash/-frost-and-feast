@@ -20,6 +20,14 @@ const cape=new T.Group();cape.position.set(0,1.02,-.38);body.add(cape);for(let i
 function leg(side){const pivot=new T.Group();pivot.position.set(side*.29,-.16,0);body.add(pivot);ball(pivot,m.steel,0,-.1,0,.3,.29,.3);box(pivot,m.shadow,0,-.52,0,.34,.68,.35);box(pivot,m.steel,0,-.44,.21,.38,.46,.15);const knee=ball(pivot,m.silver,0,-.87,.21,.25,.22,.24);const shin=new T.Group();shin.position.y=-.91;pivot.add(shin);box(shin,m.shadow,0,-.3,0,.29,.55,.33);box(shin,m.steel,0,-.27,.19,.33,.5,.14);box(shin,m.leather,0,-.65,.17,.37,.22,.59);return {pivot,shin}}const legs=[leg(-1),leg(1)];
 function arm(side){const pivot=new T.Group();pivot.position.set(side*.63,1.04,0);body.add(pivot);ball(pivot,m.steel,side*.06,-.1,0,.34,.34,.37);box(pivot,m.silver,side*.11,-.06,.27,.33,.14,.18);box(pivot,m.shadow,side*.08,-.44,0,.28,.61,.3);box(pivot,m.steel,side*.08,-.48,.19,.28,.43,.15);const elbow=new T.Group();elbow.position.set(side*.08,-.7,0);pivot.add(elbow);ball(elbow,m.silver,0,0,0,.2,.21,.22);box(elbow,m.shadow,0,-.27,0,.25,.52,.28);box(elbow,m.steel,0,-.28,.16,.28,.48,.12);ball(elbow,m.leather,0,-.58,.04,.2,.17,.21);return {pivot,elbow}}const left=arm(-1),right=arm(1);
 const sword=new T.Group();right.elbow.add(sword);sword.position.set(0,-.58,.12);cyl(sword,m.leather,0,-.18,.05,.075,.075,.36);box(sword,m.gold,0,.02,.05,.57,.09,.13);box(sword,m.silver,0,.68,.05,.16,1.25,.075);const tip=part(sword,new T.ConeGeometry(.115,.32,4),m.silver,0,1.46,.05);tip.rotation.y=Math.PI/4;ball(sword,m.gold,0,-.4,.05,.13,.13,.13);
+// A visible scabbard on the left hip, and a separate blade for the draw-cut animation.
+const scabbard=new T.Group();body.add(scabbard);scabbard.position.set(-.69,-.29,.16);scabbard.rotation.z=-.32;
+box(scabbard,m.leather,0,-.46,0,.22,1.62,.23);
+box(scabbard,m.gold,0,.30,.03,.3,.15,.28);
+box(scabbard,m.gold,0,-1.22,.02,.25,.12,.25);
+const drawnSword=sword.clone(true);body.add(drawnSword);drawnSword.visible=false;
+const drawStart=new T.Vector3(-.69,.13,.16),drawReady=new T.Vector3(.78,1.24,.58),drawEnd=new T.Vector3(-.95,.25,1.18);
+const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};
 const shield=new T.Group();left.elbow.add(shield);shield.position.set(-.08,-.42,.38);box(shield,m.leather,0,0,.02,.86,1.16,.13);box(shield,m.blue,0,0,.13,.78,1.07,.09);for(let x of [-.38,.38])box(shield,m.silver,x,0,.19,.1,1.13,.12);for(let y of [-.5,.5])box(shield,m.silver,0,y,.19,.85,.09,.11);const emblem=ball(shield,m.silver,0,0,.25,.23,.23,.08);for(let a=0;a<6;a++){const ray=box(shield,m.silver,0,.33,.26,.045,.34,.045);ray.rotation.z=a*Math.PI/3}
 for(let i=0;i<12;i++){const a=i/12*Math.PI*2;ball(shield,m.gold,Math.cos(a)*.31,Math.sin(a)*.43,.25,.045,.045,.04)}
 // Sword slash visual: translucent crescent in the soldier's local space.
@@ -31,32 +39,50 @@ const slashGeo=new T.BufferGeometry();slashGeo.setAttribute('position',new T.Flo
 const slash=new T.Mesh(slashGeo,slashMaterial);slash.position.set(.12,1.7,.82);slash.rotation.z=-.65;slash.visible=false;actor.add(slash);
 const slashGlow=new T.PointLight(0x6ecbff,0,3.5);slashGlow.position.set(0,1.8,1.4);actor.add(slashGlow);
 let attackArmX=0,attackArmZ=0,attackElbow=0,attackBodyY=0,attackBodyZ=0,attackStep=0;
-let action='idle',time=0,angle=.3,zoom=1,down=null,fallAmount=0;const labels={idle:'待機・呼吸と姿勢変化',walk:'歩行・脚と腕の連動',run:'走行・速度と前傾姿勢',attack:'迫力斬撃・大きな振りかぶりと青い剣閃',guard:'盾を構えて防御',hit:'被弾・後方への反動',fall:'戦闘不能・転倒'};document.querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{action=btn.dataset.a;time=0;document.querySelectorAll('[data-a]').forEach(b=>b.classList.toggle('active',b===btn));document.getElementById('state').textContent=labels[action]});
+let action='idle',time=0,angle=.3,zoom=1,down=null,fallAmount=0;const labels={idle:'待機・呼吸と姿勢変化',walk:'歩行・脚と腕の連動',run:'走行・速度と前傾姿勢',attack:'抜刀 → 振りかぶり → 斬撃 → 納刀',guard:'盾を構えて防御',hit:'被弾・後方への反動',fall:'戦闘不能・転倒'};document.querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{action=btn.dataset.a;time=0;document.querySelectorAll('[data-a]').forEach(b=>b.classList.toggle('active',b===btn));document.getElementById('state').textContent=labels[action]});
 const canvas=renderer.domElement;canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!down)return;angle+=(e.clientX-down.x)*.008;zoom=Math.max(.6,Math.min(1.8,zoom+(e.clientY-down.y)*.003));down={x:e.clientX,y:e.clientY}});canvas.addEventListener('pointerup',()=>down=null);canvas.addEventListener('wheel',e=>{zoom=Math.max(.6,Math.min(1.8,zoom+e.deltaY*.001))},{passive:true});window.addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
 let prev=performance.now();function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-prev)/1000||.016);prev=now;time+=dt;let w=0,lean=0,bob=.02*Math.sin(time*2.2),swing=0;
 if(action==='walk'||action==='run'){const speed=action==='run'?9:5.5,amp=action==='run'?.65:.42;w=Math.sin(time*speed)*amp;bob=Math.abs(Math.sin(time*speed))*(action==='run'?.12:.07);lean=action==='run'?.2:.07;swing=-w*.5}
 // Clear three-stage slash: wind-up, rapid diagonal strike, and follow-through.
 attackArmX=0;attackArmZ=0;attackElbow=0;attackBodyY=0;attackBodyZ=0;attackStep=0;
-slash.visible=false;slashMaterial.opacity=0;slashGlow.intensity=0;
+slash.visible=false;slashMaterial.opacity=0;slashGlow.intensity=0;drawnSword.visible=false;sword.visible=true;
 if(action==='attack'){
- const f=(time%1.5)/1.5;
- const ease=x=>x*x*(3-2*x);
- const wind=f<.28?ease(f/.28):1;
- const strike=f<.28?0:f<.47?ease((f-.28)/.19):1;
- const recover=f<.67?0:ease(Math.min(1,(f-.67)/.33));
- const hold=1-recover;
- attackArmX=(-.55-1.5*wind+2.75*strike)*hold;
- attackArmZ=(-.4-1.05*wind+2.15*strike)*hold;
- attackElbow=(-.4-.7*wind+1.55*strike)*hold;
- attackBodyY=(-.52*wind+1.24*strike)*hold;
- attackBodyZ=(.12*wind-.26*strike)*hold;
- lean=(.1*wind+.25*strike)*hold;
- bob=(-.09*wind-.16*strike)*hold;
- attackStep=(.25*wind+.4*strike)*hold;
- const flash=f>=.28&&f<=.60;
- slash.visible=flash;
- if(flash){const phase=(f-.28)/.32;slashMaterial.opacity=.82*Math.sin(phase*Math.PI);slash.rotation.z=-1.4+phase*1.25;slash.scale.setScalar(.84+phase*.25);slashGlow.intensity=2.8*Math.sin(phase*Math.PI)}
+ // 2.4 seconds per complete draw / slash / sheathe cycle.
+ const f=(time%2.4)/2.4;
+ const draw=smooth(f/.21);
+ const wind=smooth((f-.21)/.16);
+ const cut=smooth((f-.39)/.13);
+ const settle=smooth((f-.54)/.12);
+ const sheathe=smooth((f-.74)/.23);
+ const recovery=smooth((f-.66)/.15);
+ sword.visible=false;drawnSword.visible=true;
+ // Blade starts inside the hip scabbard, travels visibly up and across to the right hand.
+ const position=drawStart.clone();
+ const pulled=new T.Vector3(-.38,.98,.56);
+ const windPos=new T.Vector3(.83,1.48,.42);
+ const cutPos=new T.Vector3(-.86,.31,1.02);
+ if(f<.21)position.lerp(pulled,draw);
+ else if(f<.39)position.copy(pulled).lerp(windPos,wind);
+ else if(f<.54)position.copy(windPos).lerp(cutPos,cut);
+ else if(f<.74)position.copy(cutPos).lerp(new T.Vector3(.15,.60,.70),settle);
+ else position.copy(new T.Vector3(.15,.60,.70)).lerp(drawStart,sheathe);
+ drawnSword.position.copy(position);
+ // Sword blade is vertical when drawn, then rotates diagonally through the target plane.
+ drawnSword.rotation.set(-.10,0,f<.21?-.32:f<.39?-.32-1.45*wind:f<.54?-1.77+2.9*cut:f<.74?1.13-1.4*settle:-.27+.27*sheathe);
+ drawnSword.rotation.x=f>.39&&f<.60?-.4:0;
+ const active=1-recovery;
+ attackArmX=f<.21?-.5*draw:f<.39?-.5-1.1*wind:f<.54?-1.6+2.1*cut:.5*active;
+ attackArmZ=f<.21?-.4*draw:f<.39?-.4-.8*wind:f<.54?-1.2+1.8*cut:.6*active;
+ attackElbow=f<.21?-.4*draw:f<.39?-.4-.45*wind:f<.54?-.85+1.25*cut:.4*active;
+ attackBodyY=f<.39?-.4*wind:f<.54?-.4+1.1*cut:.7*active;
+ attackBodyZ=f<.39?.1*wind:f<.54?.1-.28*cut:-.18*active;
+ lean=f>.39&&f<.54?.25:0;
+ bob=f>.39&&f<.54?-.13:0;
+ attackStep=f<.39?.2*wind:f<.54?.2+.42*cut:.62*active;
+ // The light only appears during the actual cutting stroke.
+ if(f>=.39&&f<=.57){const phase=(f-.39)/.18;slash.visible=true;slashMaterial.opacity=.8*Math.sin(phase*Math.PI);slash.rotation.z=-1.35+phase*1.9;slash.scale.setScalar(.9+phase*.23);slashGlow.intensity=2.6*Math.sin(phase*Math.PI)}
 }
+
 if(action==='guard'){swing=-.3;lean=-.08;bob=-.05}
 if(action==='hit'){const f=time%1.2;lean=f<.2?-.42*Math.sin(f/.2*Math.PI/2):-.42*Math.exp(-(f-.2)*5);bob=-Math.abs(lean)*.3}
 if(action==='fall'){fallAmount=Math.min(1,time/1.1);lean=0;bob=0}else fallAmount=0;
@@ -65,6 +91,6 @@ right.pivot.rotation.x=action==='attack'?attackArmX:action==='guard'?-.2:swing;r
 left.pivot.rotation.x=action==='guard'?-1.0:-swing*.6;left.pivot.rotation.z=action==='guard'?.6:-.15;left.elbow.rotation.x=action==='guard'?-1.15:-.25;
 body.rotation.y=action==='attack'?attackBodyY:0;body.rotation.z=action==='attack'?attackBodyZ:body.rotation.z;cape.rotation.x=.07+Math.sin(time*(action==='run'?12:3))*(action==='run'?.19:.045);plume.rotation.x=Math.sin(time*4)*.08;
 actor.rotation.z=-fallAmount*1.32;actor.position.y=fallAmount*.35;actor.position.x=fallAmount*.55;legs[0].pivot.rotation.x+=attackStep;legs[1].pivot.rotation.x-=attackStep*.5;const dist=zoom*(innerWidth<600?11.8:9.2);camera.position.set(Math.sin(angle)*dist,dist*.38+2,Math.cos(angle)*dist+1.5);camera.lookAt(0,1.55,0);renderer.render(scene,camera)}requestAnimationFrame(loop);
-window.soldierPrototypeDiagnostics=()=>({action,renderCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,model:'procedural three.js'});
+window.soldierPrototypeDiagnostics=()=>({drawn:drawnSword.visible,scabbard:scabbard.visible,action,renderCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,model:'procedural three.js'});
 }catch(e){console.error(e);document.getElementById('error').style.display='grid'}
 </script></body></html>
