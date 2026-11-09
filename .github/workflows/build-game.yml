@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - tests/**
+      - battle-squad-prototype.html
       - soldier-quality-test.html
       - war-prototype.html
       - game-source.js
