@@ -65,8 +65,8 @@ const choices=shops.filter((q,i)=>p.shopStocks[i]===min);
 return choices[0]||shops[0];
 }
 function makeAutomationMachines(){
-machines=[];
-if(buildingOwned('kitchen')){
+machines=machines.filter(m=>m.g.parent===world);
+if(buildingOwned('kitchen')&&!machines.some(m=>m.type==='conveyor')){
 const g=new T.Group();world.add(g);
 const from=new T.Vector3(-3,0,0),to=new T.Vector3(4,0,5.5),dx=to.x-from.x,dz=to.z-from.z,len=Math.hypot(dx,dz);
 g.position.set((from.x+to.x)/2,0,(from.z+to.z)/2);g.rotation.y=Math.atan2(dx,dz);
@@ -77,19 +77,19 @@ const goods=[];for(let i=0;i<5;i++){const meat=mesh(g,'cyl',0xa75b38,0,1.2,0,.28
 machines.push({type:'conveyor',g,len,goods});
 label('自動搬送ベルト',.5,2.9,2.7,1.35);
 }
-if(buildingOwned('market')){
+if(buildingOwned('market')&&!machines.some(m=>m.type==='register')){
 const g=new T.Group();g.position.set(8.7,0,5.1);world.add(g);
 box(g,0x376a70,0,1,0,2.1,2,1.7,true);box(g,0x8bdf8e,0,2.1,0,2.4,.25,1.9);
 box(g,0x233e43,0,1.45,1,.9,.7,.18);box(g,0xb7e7c1,0,1.5,1.12,.65,.3,.06);
 machines.push({type:'register',g});label('自動レジ',8.7,3.1,5.1,1.1);
 }
-if(buildingOwned('lodge')){
+if(buildingOwned('lodge')&&!machines.some(m=>m.type==='hunter')){
 const g=new T.Group();g.position.set(-6,0,-7);world.add(g);
 box(g,0x3f666e,0,.8,0,2.4,1.4,2.3,true);box(g,0x82d5e4,0,1.6,0,1.4,.3,1.4);
 const rotor=box(g,0xffc35a,0,1.8,0,3,.12,.2);machines.push({type:'hunter',g,rotor});
 label('自動狩猟マシン',-6,3,-7,1.3);
 }
-if(buildingOwned('factory')){
+if(buildingOwned('factory')&&!machines.some(m=>m.type==='factory')){
 const g=new T.Group();g.position.set(-8,0,-1);world.add(g);
 box(g,0x637f96,0,1,0,3,2,2.5,true);box(g,0xe8b86b,0,2.2,0,3.4,.35,2.8);
 const wheel=mesh(g,'cyl',0x8dd8d6,1.65,1.2,0,.65,.24,.65);wheel.rotation.x=Math.PI/2;
