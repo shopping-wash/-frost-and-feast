@@ -22,19 +22,49 @@ function arm(side){const pivot=new T.Group();pivot.position.set(side*.63,1.04,0)
 const sword=new T.Group();right.elbow.add(sword);sword.position.set(0,-.58,.12);cyl(sword,m.leather,0,-.18,.05,.075,.075,.36);box(sword,m.gold,0,.02,.05,.57,.09,.13);box(sword,m.silver,0,.68,.05,.16,1.25,.075);const tip=part(sword,new T.ConeGeometry(.115,.32,4),m.silver,0,1.46,.05);tip.rotation.y=Math.PI/4;ball(sword,m.gold,0,-.4,.05,.13,.13,.13);
 const shield=new T.Group();left.elbow.add(shield);shield.position.set(-.08,-.42,.38);box(shield,m.leather,0,0,.02,.86,1.16,.13);box(shield,m.blue,0,0,.13,.78,1.07,.09);for(let x of [-.38,.38])box(shield,m.silver,x,0,.19,.1,1.13,.12);for(let y of [-.5,.5])box(shield,m.silver,0,y,.19,.85,.09,.11);const emblem=ball(shield,m.silver,0,0,.25,.23,.23,.08);for(let a=0;a<6;a++){const ray=box(shield,m.silver,0,.33,.26,.045,.34,.045);ray.rotation.z=a*Math.PI/3}
 for(let i=0;i<12;i++){const a=i/12*Math.PI*2;ball(shield,m.gold,Math.cos(a)*.31,Math.sin(a)*.43,.25,.045,.045,.04)}
-let action='idle',time=0,angle=.3,zoom=1,down=null,fallAmount=0;const labels={idle:'待機・呼吸と姿勢変化',walk:'歩行・脚と腕の連動',run:'走行・速度と前傾姿勢',attack:'斬撃・予備動作から振り抜き',guard:'盾を構えて防御',hit:'被弾・後方への反動',fall:'戦闘不能・転倒'};document.querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{action=btn.dataset.a;time=0;document.querySelectorAll('[data-a]').forEach(b=>b.classList.toggle('active',b===btn));document.getElementById('state').textContent=labels[action]});
+// Sword slash visual: translucent crescent in the soldier's local space.
+const slashMaterial=new T.MeshBasicMaterial({color:0x7fdcff,transparent:true,opacity:0,side:T.DoubleSide,depthWrite:false,blending:T.AdditiveBlending});
+const slashPoints=[];const slashSegments=36;
+for(let i=0;i<=slashSegments;i++){const a=(-.83+i/slashSegments*1.75)*Math.PI;const r1=1.18,r2=1.46;slashPoints.push(Math.cos(a)*r1,Math.sin(a)*r1,0,Math.cos(a)*r2,Math.sin(a)*r2,0)}
+const slashVerts=[],slashIndices=[];for(let i=0;i<slashSegments;i++){const j=i*2;slashIndices.push(j,j+1,j+2,j+1,j+3,j+2)}
+const slashGeo=new T.BufferGeometry();slashGeo.setAttribute('position',new T.Float32BufferAttribute(slashPoints,3));slashGeo.setIndex(slashIndices);slashGeo.computeVertexNormals();
+const slash=new T.Mesh(slashGeo,slashMaterial);slash.position.set(.12,1.7,.82);slash.rotation.z=-.65;slash.visible=false;actor.add(slash);
+const slashGlow=new T.PointLight(0x6ecbff,0,3.5);slashGlow.position.set(0,1.8,1.4);actor.add(slashGlow);
+let attackArmX=0,attackArmZ=0,attackElbow=0,attackBodyY=0,attackBodyZ=0,attackStep=0;
+let action='idle',time=0,angle=.3,zoom=1,down=null,fallAmount=0;const labels={idle:'待機・呼吸と姿勢変化',walk:'歩行・脚と腕の連動',run:'走行・速度と前傾姿勢',attack:'迫力斬撃・大きな振りかぶりと青い剣閃',guard:'盾を構えて防御',hit:'被弾・後方への反動',fall:'戦闘不能・転倒'};document.querySelectorAll('[data-a]').forEach(btn=>btn.onclick=()=>{action=btn.dataset.a;time=0;document.querySelectorAll('[data-a]').forEach(b=>b.classList.toggle('active',b===btn));document.getElementById('state').textContent=labels[action]});
 const canvas=renderer.domElement;canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!down)return;angle+=(e.clientX-down.x)*.008;zoom=Math.max(.6,Math.min(1.8,zoom+(e.clientY-down.y)*.003));down={x:e.clientX,y:e.clientY}});canvas.addEventListener('pointerup',()=>down=null);canvas.addEventListener('wheel',e=>{zoom=Math.max(.6,Math.min(1.8,zoom+e.deltaY*.001))},{passive:true});window.addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
 let prev=performance.now();function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-prev)/1000||.016);prev=now;time+=dt;let w=0,lean=0,bob=.02*Math.sin(time*2.2),swing=0;
 if(action==='walk'||action==='run'){const speed=action==='run'?9:5.5,amp=action==='run'?.65:.42;w=Math.sin(time*speed)*amp;bob=Math.abs(Math.sin(time*speed))*(action==='run'?.12:.07);lean=action==='run'?.2:.07;swing=-w*.5}
-if(action==='attack'){const f=(time%1.45)/1.45;const ease=x=>x*x*(3-2*x);swing=f<.3?-1.05*ease(f/.3):f<.55?-1.05+2.6*ease((f-.3)/.25):1.55*(1-ease((f-.55)/.45));lean=f>.3&&f<.55?.23:0;bob=f>.3&&f<.55?-.11:0}
+// Clear three-stage slash: wind-up, rapid diagonal strike, and follow-through.
+attackArmX=0;attackArmZ=0;attackElbow=0;attackBodyY=0;attackBodyZ=0;attackStep=0;
+slash.visible=false;slashMaterial.opacity=0;slashGlow.intensity=0;
+if(action==='attack'){
+ const f=(time%1.5)/1.5;
+ const ease=x=>x*x*(3-2*x);
+ const wind=f<.28?ease(f/.28):1;
+ const strike=f<.28?0:f<.47?ease((f-.28)/.19):1;
+ const recover=f<.67?0:ease(Math.min(1,(f-.67)/.33));
+ const hold=1-recover;
+ attackArmX=(-.55-1.5*wind+2.75*strike)*hold;
+ attackArmZ=(-.4-1.05*wind+2.15*strike)*hold;
+ attackElbow=(-.4-.7*wind+1.55*strike)*hold;
+ attackBodyY=(-.52*wind+1.24*strike)*hold;
+ attackBodyZ=(.12*wind-.26*strike)*hold;
+ lean=(.1*wind+.25*strike)*hold;
+ bob=(-.09*wind-.16*strike)*hold;
+ attackStep=(.25*wind+.4*strike)*hold;
+ const flash=f>=.28&&f<=.60;
+ slash.visible=flash;
+ if(flash){const phase=(f-.28)/.32;slashMaterial.opacity=.82*Math.sin(phase*Math.PI);slash.rotation.z=-1.4+phase*1.25;slash.scale.setScalar(.84+phase*.25);slashGlow.intensity=2.8*Math.sin(phase*Math.PI)}
+}
 if(action==='guard'){swing=-.3;lean=-.08;bob=-.05}
 if(action==='hit'){const f=time%1.2;lean=f<.2?-.42*Math.sin(f/.2*Math.PI/2):-.42*Math.exp(-(f-.2)*5);bob=-Math.abs(lean)*.3}
 if(action==='fall'){fallAmount=Math.min(1,time/1.1);lean=0;bob=0}else fallAmount=0;
 body.position.y=1.05+bob;body.rotation.x=lean;body.rotation.z=action==='hit'?.16*Math.sin(time*8)*Math.exp(-time%1.2*3):0;legs[0].pivot.rotation.x=w;legs[1].pivot.rotation.x=-w;legs[0].shin.rotation.x=Math.max(0,-w)*.45;legs[1].shin.rotation.x=Math.max(0,w)*.45;
-right.pivot.rotation.x=action==='attack'?-1.25:action==='guard'?-0.2:swing;right.pivot.rotation.z=action==='attack'?-0.55:.08;right.elbow.rotation.x=action==='attack'?-1.1:.12;
+right.pivot.rotation.x=action==='attack'?attackArmX:action==='guard'?-.2:swing;right.pivot.rotation.z=action==='attack'?attackArmZ:.08;right.elbow.rotation.x=action==='attack'?attackElbow:.12;
 left.pivot.rotation.x=action==='guard'?-1.0:-swing*.6;left.pivot.rotation.z=action==='guard'?.6:-.15;left.elbow.rotation.x=action==='guard'?-1.15:-.25;
-body.rotation.y=action==='attack'?-.24*Math.sin(time*4.4):0;cape.rotation.x=.07+Math.sin(time*(action==='run'?12:3))*(action==='run'?.19:.045);plume.rotation.x=Math.sin(time*4)*.08;
-actor.rotation.z=-fallAmount*1.32;actor.position.y=fallAmount*.35;actor.position.x=fallAmount*.55;const dist=zoom*(innerWidth<600?11.8:9.2);camera.position.set(Math.sin(angle)*dist,dist*.38+2,Math.cos(angle)*dist+1.5);camera.lookAt(0,1.55,0);renderer.render(scene,camera)}requestAnimationFrame(loop);
+body.rotation.y=action==='attack'?attackBodyY:0;body.rotation.z=action==='attack'?attackBodyZ:body.rotation.z;cape.rotation.x=.07+Math.sin(time*(action==='run'?12:3))*(action==='run'?.19:.045);plume.rotation.x=Math.sin(time*4)*.08;
+actor.rotation.z=-fallAmount*1.32;actor.position.y=fallAmount*.35;actor.position.x=fallAmount*.55;legs[0].pivot.rotation.x+=attackStep;legs[1].pivot.rotation.x-=attackStep*.5;const dist=zoom*(innerWidth<600?11.8:9.2);camera.position.set(Math.sin(angle)*dist,dist*.38+2,Math.cos(angle)*dist+1.5);camera.lookAt(0,1.55,0);renderer.render(scene,camera)}requestAnimationFrame(loop);
 window.soldierPrototypeDiagnostics=()=>({action,renderCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,model:'procedural three.js'});
 }catch(e){console.error(e);document.getElementById('error').style.display='grid'}
 </script></body></html>
