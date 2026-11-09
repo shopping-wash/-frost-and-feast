@@ -21,6 +21,11 @@ for(const side of [-1,1]){
  const glow=new T.PointLight(0xff934a,3,5);glow.position.set(side*4.9,2,8.2);scene.add(glow);
 }
 
+// Frozen wheel ruts and battlefield scatter.
+const rutIceMaterial=new T.MeshStandardMaterial({color:0xb1d5e7,roughness:.24,metalness:.08,transparent:true,opacity:.36});
+for(let lane of [-3.2,3.2])for(let i=0;i<18;i++){const rut=new T.Mesh(new T.PlaneGeometry(.12,.55),rutIceMaterial);rut.rotation.x=-Math.PI/2;rut.position.set(lane+Math.sin(i*2.1)*.08,.018,-12+i*1.16);scene.add(rut)}
+const scatteredStoneMaterial=new T.MeshStandardMaterial({color:0x91a9b6,roughness:.9});
+for(let i=0;i<35;i++){const x=(Math.sin(i*16.19)*.5+.5)*24-12,z=(Math.cos(i*7.73)*.5+.5)*27-14;if(Math.abs(x)<5&&z>-10)continue;const rock=new T.Mesh(new T.DodecahedronGeometry(.13+(i%5)*.055,0),scatteredStoneMaterial);rock.position.set(x,.09,z);rock.rotation.set(i*.8,i*.4,i*.6);rock.castShadow=true;scene.add(rock)}
 // Snowdrifts, frozen road edges, scattered shields and broken barricades.
 const driftMat=new T.MeshStandardMaterial({color:0xf2f6f7,roughness:1});
 const barricadeWood=new T.MeshStandardMaterial({color:0x574133,roughness:1});
