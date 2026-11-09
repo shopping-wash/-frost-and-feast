@@ -36,18 +36,32 @@ const frostHaze=new T.Mesh(new T.PlaneGeometry(32,12),new T.MeshBasicMaterial({c
 const trailMat=new T.MeshStandardMaterial({color:0x9bb0bd,roughness:1,transparent:true,opacity:.38});for(let k=0;k<80;k++){const z=-9+k*.21,x=(k%2===0?-.42:.42)+Math.sin(k*.6)*.09;const mark=new T.Mesh(new T.PlaneGeometry(.23,.47),trailMat);mark.rotation.x=-Math.PI/2;mark.rotation.z=(k%2?-.14:.14);mark.position.set(x,.016,z);scene.add(mark)}for(let i=0;i<25;i++){const x=(Math.random()-.5)*15,z=(Math.random()-.5)*20;const mound=new T.Mesh(new T.IcosahedronGeometry(.15+Math.random()*.2,1),iceMat);mound.position.set(x,.06,z);mound.scale.set(1.7,.28,1.1);scene.add(mound)}const snow=[];const snowMat=new T.MeshBasicMaterial({color:0xffffff});for(let i=0;i<110;i++){const flake=new T.Mesh(new T.SphereGeometry(.025,4,4),snowMat);flake.position.set((Math.random()-.5)*30,Math.random()*12,(Math.random()-.5)*30);scene.add(flake);snow.push(flake)}const urls={sword:'https://threejs.org/examples/models/gltf/Soldier.glb',shield:'https://threejs.org/examples/models/gltf/Soldier.glb',archer:'https://threejs.org/examples/models/gltf/Soldier.glb',enemySword:'https://threejs.org/examples/models/gltf/Soldier.glb',enemyShield:'https://threejs.org/examples/models/gltf/Soldier.glb',enemyArcher:'https://threejs.org/examples/models/gltf/Soldier.glb'},assets={},loader=new GLTFLoader();let gold=420,wave=1,castle=300,allies=[],enemies=[],corpses=[],particles=[],spawnTimer=1,remaining=40,breakTime=0,ended=false,elapsed=0,paused=false,speedMultiplier=1,cameraMode=0;const SQUAD_SIZE={sword:5,shield:4,archer:5},ALLY_CAP=40,ENEMY_CAP=60;let squadSequence=0,formationTick=0,volleyTick=0;const levels={sword:1,shield:1,archer:1},costs={sword:80,shield:110,archer:90},stats={sword:{hp:115,atk:24,range:1.7,speed:2.5,rate:1.05},shield:{hp:230,atk:12,range:1.7,speed:1.65,rate:1.3},archer:{hp:75,atk:19,range:7,speed:1.8,rate:1.5}},ui={gold:document.querySelector('#gold'),wave:document.querySelector('#wave'),base:document.querySelector('#base'),status:document.querySelector('#status')};function refresh(){document.querySelector('#squad-counter').textContent='味方 '+allies.length+'/40　敵 '+enemies.length+'/60';ui.gold.textContent='🪙 '+gold;ui.wave.textContent='Wave '+wave+' / 5';ui.base.textContent='🏰 城HP '+Math.max(0,Math.ceil(castle))+'/300';document.querySelector('#castle-fill').style.width=Math.max(0,Math.min(100,castle/3))+'%';document.querySelectorAll('[data-buy]').forEach(b=>b.disabled=ended||gold<costs[b.dataset.buy]||!assets[b.dataset.buy]||allies.length>=ALLY_CAP);document.querySelectorAll('[data-up]').forEach(b=>{const t=b.dataset.up,l=levels[t],price=l===1?150:260;b.textContent=t==='sword'?'傭兵':t==='shield'?'盾兵':'弓兵';b.textContent+=' Lv'+l+(l<3?' ↑ '+price:' MAX');b.disabled=ended||l>=3||gold<price})}function unit(type,enemy,x,z){
  const src=assets[enemy?'enemy'+type[0].toUpperCase()+type.slice(1):type];if(!src)return null;
  const root=new T.Group();root.position.set(x,0,z);scene.add(root);
- const model=cloneSkeleton(src.scene);root.add(model);
+ const mobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||innerWidth<900;
+ const model=mobile?new T.Group():cloneSkeleton(src.scene);root.add(model);
+ if(mobile){
+  const tunic=new T.MeshStandardMaterial({color:enemy?0x8b3838:0x2b6298,roughness:.85});
+  const armor=new T.MeshStandardMaterial({color:enemy?0x525151:0x8999a3,metalness:.55,roughness:.5});
+  const skin=new T.MeshStandardMaterial({color:0xd8a77e,roughness:.95});
+  const body=new T.Mesh(new T.CylinderGeometry(.27,.38,.9,7),tunic);body.position.y=1.03;model.add(body);
+  const head=new T.Mesh(new T.SphereGeometry(.22,7,6),skin);head.position.y=1.73;model.add(head);
+  const helmet=new T.Mesh(new T.ConeGeometry(.27,.34,7),armor);helmet.position.y=1.98;model.add(helmet);
+  for(const side of [-1,1]){const leg=new T.Mesh(new T.BoxGeometry(.2,.7,.23),armor);leg.position.set(side*.16,.37,0);model.add(leg);const arm=new T.Mesh(new T.BoxGeometry(.18,.75,.22),tunic);arm.position.set(side*.37,1.11,0);model.add(arm)}
+  if(type==='shield'){const shield=new T.Mesh(new T.BoxGeometry(.65,.85,.12),armor);shield.position.set(-.43,1.05,.34);model.add(shield)}
+  else if(type==='archer'){const bow=new T.Mesh(new T.TorusGeometry(.43,.035,5,12,Math.PI*1.35),armor);bow.position.set(-.43,1.15,.28);model.add(bow)}
+  else{const sword=new T.Mesh(new T.BoxGeometry(.09,.85,.09),armor);sword.position.set(.45,1.1,.3);model.add(sword)}
+ }
+
  const scale=type==='shield'?1.03:type==='archer'?.94:.98;
  model.scale.setScalar(scale);model.position.set(0,0,0);model.rotation.y=0;const bounds=new T.Box3().setFromObject(model);const size=new T.Vector3();bounds.getSize(size);if(size.y>0.1){const normalized=2.0/size.y;model.scale.multiplyScalar(normalized);model.position.y-=bounds.min.y*normalized;}
- model.traverse(o=>{if(o.isMesh||o.isSkinnedMesh){o.frustumCulled=false;o.visible=true;o.castShadow=true;o.receiveShadow=true;}});
+ model.traverse(o=>{if(o.isMesh||o.isSkinnedMesh){o.frustumCulled=false;o.visible=true;o.castShadow=false;o.receiveShadow=false;}});
  const mixer=new T.AnimationMixer(model);
- const clips=src.animations;
+ const clips=mobile?[]:src.animations;
  function clip(rx){const c=clips.find(item=>rx.test(item.name));return c?mixer.clipAction(c):null;}
  const idle=clip(/idle/i)||(clips.length?mixer.clipAction(clips[0]):null);
  const walk=clip(/run|walk/i);
  const attack=clip(/attack|slash|swing|shoot|fire/i);const death=clip(/death|dead|die/i);const hit=clip(/hit/i);
  if(idle)idle.play();
- const fallbackSoldier=src===fallback;let weaponRig=null;
+ const fallbackSoldier=src===fallback&&!mobile;let weaponRig=null;
  if(fallbackSoldier){
  model.rotation.y=Math.PI;
  const steel=new T.MeshStandardMaterial({color:enemy?0x4e555b:0x8598a8,metalness:.72,roughness:.33});
