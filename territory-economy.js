@@ -74,7 +74,7 @@ g.position.set((from.x+to.x)/2,0,(from.z+to.z)/2);g.rotation.y=Math.atan2(dx,dz)
 box(g,0x354f58,0,.85,0,1.55,.22,len,true);
 for(let i=0;i<12;i++){const roller=mesh(g,'cyl',0x7c9b9d,0,.99,-len/2+.45+i*(len-.9)/11,.64,.13,.64);roller.rotation.z=Math.PI/2}
 for(const side of [-.85,.85])box(g,0xe6b75e,side,1.06,0,.13,.32,len);
-const goods=[];for(let i=0;i<5;i++){const meat=mesh(g,'cyl',0xa75b38,0,1.2,0,.28,.16,.28);goods.push(meat)}
+const goods=[];for(let i=0;i<5;i++){const meat=state.stage===3?new T.Mesh(katanaGeo,katanaMat):mesh(g,'cyl',0xa75b38,0,1.2,0,.28,.16,.28);if(state.stage===3){meat.position.set(0,1.48,0);meat.rotation.z=Math.PI/2;g.add(meat)}goods.push(meat)}
 machines.push({type:'conveyor',g,len,goods});
 label('ベルトコンベア：加工品を運搬',.5,2.9,2.7,1.35);
 }
@@ -142,8 +142,22 @@ function updatePadLabels(){for(const pad of pads){const d=pad.d,old=pad.label;wo
 // Shared instanced geometry for hundreds of actual 3D goods and bills.
 const dummy=new T.Object3D();const rawGeo=new T.CylinderGeometry(.27,.29,.13,10);const foodGeo=new T.CylinderGeometry(.27,.29,.13,10);const billGeo=new T.BoxGeometry(.53,.09,.29);
 function instance(g,m,count){const o=new T.InstancedMesh(g,m,count);o.instanceMatrix.setUsage(T.DynamicDrawUsage);o.frustumCulled=false;scene.add(o);instanced.push(o);return o}const rawInst=instance(rawGeo,mat(cfg.color),900),foodInst=instance(foodGeo,mat(0x98492f),900),billInst=instance(billGeo,mat(0x7be45b),900),boneInst=instance(new T.CylinderGeometry(.08,.08,.135,6),mat(0xffe8c8),900),bandInst=instance(new T.BoxGeometry(.12,.095,.30),mat(0xd9f4a3),900);let ri=0,fi=0,bi=0;
+// Forged katana model: tapered steel blade, dark grip, gold guard and pommel.
+function katanaGeometry(){
+const parts=[];
+const add=(geometry,color)=>{const count=geometry.attributes.position.count,colors=[];const c=new T.Color(color);for(let i=0;i<count;i++)colors.push(c.r,c.g,c.b);geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));parts.push(geometry)};
+const bladeShape=new T.Shape();bladeShape.moveTo(-.075,-.10);bladeShape.lineTo(.075,-.10);bladeShape.lineTo(.072,.42);bladeShape.lineTo(.03,.68);bladeShape.lineTo(-.045,.78);bladeShape.lineTo(-.072,.45);bladeShape.closePath();
+const blade=new T.ExtrudeGeometry(bladeShape,{depth:.045,bevelEnabled:true,bevelThickness:.008,bevelSize:.008,bevelSegments:1,steps:1});blade.translate(0,0,-.0225);add(blade,0xdceaf2);
+const edge=new T.BoxGeometry(.018,.68,.052);edge.translate(-.067,.22,0);add(edge,0xffffff);
+const guard=new T.BoxGeometry(.31,.075,.14);guard.translate(0,-.16,0);add(guard,0xd4aa4c);
+const grip=new T.BoxGeometry(.095,.39,.105);grip.translate(0,-.39,0);add(grip,0x2b3342);
+for(let k=0;k<4;k++){const wrap=new T.BoxGeometry(.104,.022,.112);wrap.translate(0,-.24-k*.085,0);add(wrap,0x9c805a)}
+const pommel=new T.BoxGeometry(.135,.065,.135);pommel.translate(0,-.60,0);add(pommel,0xc7a252);
+const merged=mergeGeometries(parts,false);parts.forEach(g=>g.dispose());return merged;
+}
+const katanaGeo=katanaGeometry(),katanaMat=new T.MeshStandardMaterial({vertexColors:true,metalness:.68,roughness:.29});
 let goodsStage=-1;
-function updateProductModels(){if(goodsStage===state.stage)return;goodsStage=state.stage;if(rawInst.geometry!==rawGeo)rawInst.geometry.dispose();if(foodInst.geometry!==foodGeo)foodInst.geometry.dispose();if(state.stage===0){rawInst.geometry=rawGeo;foodInst.geometry=foodGeo}else if(state.stage===1){rawInst.geometry=new T.SphereGeometry(.32,8,5);rawInst.geometry.scale(.65,.35,1.4);foodInst.geometry=rawInst.geometry.clone()}else if(state.stage===2){rawInst.geometry=new T.ConeGeometry(.20,.34,7);rawInst.geometry.rotateZ(Math.PI/2);foodInst.geometry=new T.CylinderGeometry(.3,.2,.17,10)}else if(state.stage===3){rawInst.geometry=new T.SphereGeometry(.19,8,6);rawInst.geometry.scale(1,1.25,1);foodInst.geometry=new T.CylinderGeometry(.29,.29,.09,10)}else{rawInst.geometry=new T.CylinderGeometry(.12,.18,.32,8);foodInst.geometry=new T.CylinderGeometry(.3,.3,.18,3)}boneInst.visible=state.stage===0;foodInst.material=mat([0x98492f,0xbd854a,0xe4a54e,0xf3d370,0xf2cb5c][state.stage])}
+function updateProductModels(){if(goodsStage===state.stage)return;goodsStage=state.stage;if(rawInst.geometry!==rawGeo)rawInst.geometry.dispose();if(foodInst.geometry!==foodGeo&&foodInst.geometry!==katanaGeo)foodInst.geometry.dispose();if(state.stage===0){rawInst.geometry=rawGeo;foodInst.geometry=foodGeo}else if(state.stage===1){rawInst.geometry=new T.SphereGeometry(.32,8,5);rawInst.geometry.scale(.65,.35,1.4);foodInst.geometry=rawInst.geometry.clone()}else if(state.stage===2){rawInst.geometry=new T.ConeGeometry(.20,.34,7);rawInst.geometry.rotateZ(Math.PI/2);foodInst.geometry=new T.CylinderGeometry(.3,.2,.17,10)}else if(state.stage===3){rawInst.geometry=new T.DodecahedronGeometry(.25,0);foodInst.geometry=katanaGeo}else{rawInst.geometry=new T.CylinderGeometry(.12,.18,.32,8);foodInst.geometry=new T.CylinderGeometry(.3,.3,.18,3)}boneInst.visible=state.stage===0;foodInst.material=state.stage===3?katanaMat:mat([0x98492f,0xbd854a,0xe4a54e,0xf3d370,0xf2cb5c][state.stage])}
 // Batch all animated model parts by shared geometry/material to reduce draw calls.
 const actorBatches=new Map();actors.visible=false;
 function renderActors(){actors.updateMatrixWorld(true);for(const b of actorBatches.values())b.count=0;actors.traverse(o=>{if(!o.isMesh)return;let ancestor=o;while(ancestor!==actors){if(!ancestor.visible)return;ancestor=ancestor.parent}const key=o.geometry.uuid+':'+o.material.uuid;let b=actorBatches.get(key);if(!b){b=new T.InstancedMesh(o.geometry,o.material,4096);b.instanceMatrix.setUsage(T.DynamicDrawUsage);b.frustumCulled=false;b.castShadow=true;b.receiveShadow=true;b.count=0;actorBatches.set(key,b);scene.add(b)}if(b.count<4096)b.setMatrixAt(b.count++,o.matrixWorld)});for(const b of actorBatches.values())b.instanceMatrix.needsUpdate=true}
