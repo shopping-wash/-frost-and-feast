@@ -3863,50 +3863,82 @@ three/build/three.module.js:
 #frost-unified-back{position:absolute;z-index:101;top:calc(env(safe-area-inset-top) + 9px);left:10px;padding:10px 14px;background:#14394f;color:#fff;border:1px solid #b1d7ed;border-radius:10px;font:800 13px system-ui;box-shadow:0 2px 12px #000a}
 #frost-attack-alert{position:fixed;z-index:90;left:50%;top:calc(env(safe-area-inset-top) + 82px);transform:translateX(-50%) translateY(-16px);width:min(92vw,430px);padding:14px;background:linear-gradient(145deg,#431b20f3,#182b3bf5);border:2px solid #e66f63;border-radius:15px;color:#fff;box-shadow:0 10px 36px #0009;opacity:0;pointer-events:none;transition:.25s}
 #frost-attack-alert.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
-#frost-attack-alert strong{display:block;font:900 18px system-ui;color:#ffd4c7;margin-bottom:5px}
+#frost-attack-alert.occupied{border-color:#d19a4b;background:linear-gradient(145deg,#493119f3,#172a3bf5)}
+#frost-attack-alert strong{display:block;font:900 17px/1.35 system-ui;color:#ffd4c7;margin-bottom:5px}
+#frost-attack-alert.occupied strong{color:#ffe0a3}
 #frost-attack-alert span{display:block;font:700 12px/1.5 system-ui;color:#eef6fb;margin-bottom:10px}
 #frost-defend-now{width:100%;padding:11px 14px;border-radius:10px;background:#b44135;color:#fff;border:1px solid #ffc0ad;font:900 14px system-ui}
+#frost-attack-alert.occupied #frost-defend-now{background:#8a5b1c;border-color:#ffd38b}
 </style>
 <button id="frost-unified-entry" type="button">⚔ 戦争・領土拡大</button>
-<div id="frost-attack-alert"><strong>⚠ 商店が攻められています！</strong><span>敵軍がこの商店へ接近中。防衛戦に入り、商店を守ってください。</span><button id="frost-defend-now" type="button">🛡 今すぐ防衛する</button></div>
+<div id="frost-attack-alert"><strong id="frost-attack-title">⚠ 商店が攻められています！</strong><span id="frost-attack-text"></span><button id="frost-defend-now" type="button">🛡 今すぐ防衛する</button></div>
 <div id="frost-unified-shell"><iframe id="frost-unified-frame" title="雪原の商店：戦争・新産業" allow="autoplay"></iframe><button id="frost-unified-back" type="button">🏪 元の商店へ戻る</button></div>
 <script>
 (function(){
-const shell=document.getElementById('frost-unified-shell'),frame=document.getElementById('frost-unified-frame'),back=document.getElementById('frost-unified-back'),alertBox=document.getElementById('frost-attack-alert'),cover=document.getElementById('cover');
-const NEXT_ATTACK='frost-next-defense-attack-v1',PENDING_ATTACK='frost-defense-pending-v1';
-let current='shop',lastLand=0;
-const randomMs=(min,max)=>Math.floor((min+Math.random()*(max-min))*60000);
-function scheduleNext(first=false){localStorage.setItem(NEXT_ATTACK,String(Date.now()+randomMs(first?2:6,first?4:12)))}
+const shell=document.getElementById('frost-unified-shell'),frame=document.getElementById('frost-unified-frame'),back=document.getElementById('frost-unified-back'),alertBox=document.getElementById('frost-attack-alert'),alertTitle=document.getElementById('frost-attack-title'),alertText=document.getElementById('frost-attack-text'),actionBtn=document.getElementById('frost-defend-now'),cover=document.getElementById('cover');
+const HOME_KEY='frost-home-territory-v1',SHOP_KEY='frost-feast-save-v1';
+const STAGE_NAMES=['雪原のクマ肉商店','氷湖のフィッシュマーケット','温室の収穫市場','雪原のたまご農場','高原のミルク工房'];
+let current='shop',lastLand=0,currentBattle=null;
+function shopSave(){try{return JSON.parse(localStorage.getItem(SHOP_KEY))}catch{return null}}
+function loadHome(){let h;try{h=JSON.parse(localStorage.getItem(HOME_KEY))}catch{}if(!h||typeof h!=='object')h={lost:[],pending:null,nextAttack:0};h.lost=Array.isArray(h.lost)?h.lost.filter(x=>Number.isInteger(x)&&x>=0&&x<5):[];h.pending=Number.isInteger(h.pending)&&h.pending>=0&&h.pending<5?h.pending:null;h.nextAttack=Number(h.nextAttack)||0;return h}
+function saveHome(h){localStorage.setItem(HOME_KEY,JSON.stringify(h))}
+function randomMs(min,max){return Math.floor((min+Math.random()*(max-min))*60000)}
+function scheduleNext(first=false){const h=loadHome();h.nextAttack=Date.now()+randomMs(first?3:8,first?7:18);saveHome(h)}
+function unlockedStages(){const v=shopSave();const n=Math.max(0,Math.min(4,Number(v?.unlocked)||0));return Array.from({length:n+1},(_,i)=>i)}
 function shopIsPlaying(){return current==='shop'&&(!cover||getComputedStyle(cover).display==='none'||cover.hidden)}
+function chooseAttack(){const h=loadHome(),eligible=unlockedStages().filter(i=>!h.lost.includes(i));if(!eligible.length)return null;return eligible[Math.floor(Math.random()*eligible.length)]}
 function updateAttackAlert(){
  if(current!=='shop'){alertBox.classList.remove('show');return}
- if(localStorage.getItem(PENDING_ATTACK)==='1'){if(shopIsPlaying())alertBox.classList.add('show');return}
- let next=Number(localStorage.getItem(NEXT_ATTACK)||0);
- if(!next){scheduleNext(true);return}
- if(Date.now()>=next&&shopIsPlaying()){localStorage.setItem(PENDING_ATTACK,'1');alertBox.classList.add('show')}
+ const h=loadHome();
+ if(h.pending!==null){
+   alertBox.classList.remove('occupied');alertTitle.textContent='⚠ '+STAGE_NAMES[h.pending]+'が侵攻されています！';alertText.textContent='敵軍が接近中です。防衛戦で敵軍HPを0にすれば防衛成功、自軍HPが0になると占領されます。';actionBtn.textContent='🛡 今すぐ防衛する';actionBtn.dataset.stage=String(h.pending);actionBtn.dataset.retake='0';if(shopIsPlaying())alertBox.classList.add('show');return;
+ }
+ if(h.lost.length){
+   const stage=h.lost[0];alertBox.classList.add('occupied');alertTitle.textContent='⚔ '+STAGE_NAMES[stage]+'は敵に占領されています';alertText.textContent='この拠点は敵の支配下です。奪還戦で敵軍HPを0にすると取り戻せます。';actionBtn.textContent='⚔ 奪還戦を開始';actionBtn.dataset.stage=String(stage);actionBtn.dataset.retake='1';if(shopIsPlaying())alertBox.classList.add('show');return;
+ }
+ alertBox.classList.remove('show','occupied');
+ let next=h.nextAttack;if(!next){scheduleNext(true);return}
+ if(Date.now()>=next&&shopIsPlaying()){
+   const stage=chooseAttack();if(stage===null){scheduleNext(false);return}
+   h.pending=stage;h.nextAttack=0;saveHome(h);updateAttackAlert();
+ }
 }
-function show(mode,land){
+function show(mode,land,retake=false){
  alertBox.classList.remove('show');
- if(mode==='shop'){shell.classList.remove('active');frame.src='about:blank';current='shop';history.replaceState(null,'','./index.html');setTimeout(updateAttackAlert,300);return}
+ if(mode==='shop'){shell.classList.remove('active');frame.src='about:blank';current='shop';currentBattle=null;history.replaceState(null,'','./index.html');setTimeout(updateAttackAlert,250);return}
  current=mode;if(Number.isInteger(land))lastLand=land;
  shell.classList.add('active');
  back.textContent=(mode==='industry')?'⚔ 戦争・領土へ戻る':'🏪 元の商店へ戻る';
- const url=mode==='war'?'./snow-battle-game.html?unified=1':mode==='defense'?'./snow-battle-game.html?unified=1&defense=1':'./territory-economy.html?unified=1&land='+lastLand;
- frame.src=url;history.replaceState(null,'','./index.html?mode='+mode+(mode==='industry'?'&land='+lastLand:''));
+ let url;
+ if(mode==='war')url='./snow-battle-game.html?unified=1';
+ else if(mode==='defense'){const stage=Number.isInteger(land)?land:0;currentBattle={stage,retake:!!retake};url='./snow-battle-game.html?unified=1&defense=1&stage='+stage+'&retake='+(retake?'1':'0')}
+ else url='./territory-economy.html?unified=1&land='+lastLand;
+ frame.src=url;history.replaceState(null,'','./index.html?mode='+mode+(mode==='industry'?'&land='+lastLand:mode==='defense'?'&stage='+land+'&retake='+(retake?'1':'0'):''));
 }
 document.getElementById('frost-unified-entry').onclick=()=>show('war');
-document.getElementById('frost-defend-now').onclick=()=>show('defense');
+actionBtn.onclick=()=>{const stage=Number(actionBtn.dataset.stage),retake=actionBtn.dataset.retake==='1';if(Number.isInteger(stage))show('defense',stage,retake)};
 back.onclick=()=>show(current==='industry'?'war':'shop');
 window.addEventListener('message',e=>{
  if(e.origin!==location.origin||e.source!==frame.contentWindow||!e.data||e.data.app!=='frost-unified')return;
  if(e.data.action==='shop')show('shop');
  if(e.data.action==='war')show('war');
  if(e.data.action==='industry'&&Number.isInteger(e.data.land)&&e.data.land>=0&&e.data.land<5)show('industry',e.data.land);
- if(e.data.action==='defenseWon'){localStorage.removeItem(PENDING_ATTACK);scheduleNext(false)}
+ if(e.data.action==='defenseWon'){
+   const h=loadHome(),stage=Number.isInteger(e.data.stage)?e.data.stage:currentBattle?.stage;
+   if(Number.isInteger(stage)){h.lost=h.lost.filter(x=>x!==stage);if(h.pending===stage)h.pending=null}
+   h.nextAttack=Date.now()+randomMs(8,18);saveHome(h);show('shop');
+ }
+ if(e.data.action==='defenseLost'){
+   const h=loadHome(),stage=Number.isInteger(e.data.stage)?e.data.stage:currentBattle?.stage;
+   if(Number.isInteger(stage)&&!h.lost.includes(stage))h.lost.push(stage);if(h.pending===stage)h.pending=null;
+   h.nextAttack=Date.now()+randomMs(8,18);saveHome(h);show('shop');
+ }
 });
-const p=new URLSearchParams(location.search),mode=p.get('mode'),land=Number(p.get('land')||0);
-if(mode==='war')show('war');else if(mode==='defense')show('defense');else if(mode==='industry'&&Number.isInteger(land)&&land>=0&&land<5)show('industry',land);
+const oldPending=localStorage.getItem('frost-defense-pending-v1');if(oldPending==='1'){localStorage.removeItem('frost-defense-pending-v1')}
+localStorage.removeItem('frost-next-defense-attack-v1');
+const p=new URLSearchParams(location.search),mode=p.get('mode'),land=Number(p.get('land')||0),stage=Number(p.get('stage')||0),retake=p.get('retake')==='1';
+if(mode==='war')show('war');else if(mode==='defense'){const h=loadHome();if(h.pending===stage||h.lost.includes(stage))show('defense',stage,retake);else show('shop')}else if(mode==='industry'&&Number.isInteger(land)&&land>=0&&land<5)show('industry',land);
 setInterval(updateAttackAlert,2000);setTimeout(updateAttackAlert,500);
+window.frostHomeTerritory={get:loadHome,forceAttack(stage=0){const h=loadHome();h.pending=Math.max(0,Math.min(4,stage|0));h.nextAttack=0;saveHome(h);updateAttackAlert()}};
 })();
 </script></body></html>
-
