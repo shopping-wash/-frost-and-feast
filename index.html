@@ -3861,30 +3861,52 @@ three/build/three.module.js:
 #frost-unified-shell.active{display:block}
 #frost-unified-frame{width:100%;height:100%;border:0;display:block}
 #frost-unified-back{position:absolute;z-index:101;top:calc(env(safe-area-inset-top) + 9px);left:10px;padding:10px 14px;background:#14394f;color:#fff;border:1px solid #b1d7ed;border-radius:10px;font:800 13px system-ui;box-shadow:0 2px 12px #000a}
+#frost-attack-alert{position:fixed;z-index:90;left:50%;top:calc(env(safe-area-inset-top) + 82px);transform:translateX(-50%) translateY(-16px);width:min(92vw,430px);padding:14px;background:linear-gradient(145deg,#431b20f3,#182b3bf5);border:2px solid #e66f63;border-radius:15px;color:#fff;box-shadow:0 10px 36px #0009;opacity:0;pointer-events:none;transition:.25s}
+#frost-attack-alert.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+#frost-attack-alert strong{display:block;font:900 18px system-ui;color:#ffd4c7;margin-bottom:5px}
+#frost-attack-alert span{display:block;font:700 12px/1.5 system-ui;color:#eef6fb;margin-bottom:10px}
+#frost-defend-now{width:100%;padding:11px 14px;border-radius:10px;background:#b44135;color:#fff;border:1px solid #ffc0ad;font:900 14px system-ui}
 </style>
 <button id="frost-unified-entry" type="button">⚔ 戦争・領土拡大</button>
+<div id="frost-attack-alert"><strong>⚠ 商店が攻められています！</strong><span>敵軍がこの商店へ接近中。防衛戦に入り、商店を守ってください。</span><button id="frost-defend-now" type="button">🛡 今すぐ防衛する</button></div>
 <div id="frost-unified-shell"><iframe id="frost-unified-frame" title="雪原の商店：戦争・新産業" allow="autoplay"></iframe><button id="frost-unified-back" type="button">🏪 元の商店へ戻る</button></div>
 <script>
 (function(){
-const shell=document.getElementById('frost-unified-shell'),frame=document.getElementById('frost-unified-frame'),back=document.getElementById('frost-unified-back');
+const shell=document.getElementById('frost-unified-shell'),frame=document.getElementById('frost-unified-frame'),back=document.getElementById('frost-unified-back'),alertBox=document.getElementById('frost-attack-alert'),cover=document.getElementById('cover');
+const NEXT_ATTACK='frost-next-defense-attack-v1',PENDING_ATTACK='frost-defense-pending-v1';
 let current='shop',lastLand=0;
+const randomMs=(min,max)=>Math.floor((min+Math.random()*(max-min))*60000);
+function scheduleNext(first=false){localStorage.setItem(NEXT_ATTACK,String(Date.now()+randomMs(first?2:6,first?4:12)))}
+function shopIsPlaying(){return current==='shop'&&(!cover||getComputedStyle(cover).display==='none'||cover.hidden)}
+function updateAttackAlert(){
+ if(current!=='shop'){alertBox.classList.remove('show');return}
+ if(localStorage.getItem(PENDING_ATTACK)==='1'){if(shopIsPlaying())alertBox.classList.add('show');return}
+ let next=Number(localStorage.getItem(NEXT_ATTACK)||0);
+ if(!next){scheduleNext(true);return}
+ if(Date.now()>=next&&shopIsPlaying()){localStorage.setItem(PENDING_ATTACK,'1');alertBox.classList.add('show')}
+}
 function show(mode,land){
-if(mode==='shop'){shell.classList.remove('active');frame.src='about:blank';current='shop';history.replaceState(null,'','./index.html');return}
-current=mode;if(Number.isInteger(land))lastLand=land;
-shell.classList.add('active');back.textContent=mode==='war'?'🏪 元の商店へ戻る':'⚔ 戦争・領土へ戻る';
-const url=mode==='war'?'./snow-battle-game.html?unified=1':'./territory-economy.html?unified=1&land='+lastLand;
-frame.src=url;history.replaceState(null,'','./index.html?mode='+mode+(mode==='industry'?'&land='+lastLand:''));
+ alertBox.classList.remove('show');
+ if(mode==='shop'){shell.classList.remove('active');frame.src='about:blank';current='shop';history.replaceState(null,'','./index.html');setTimeout(updateAttackAlert,300);return}
+ current=mode;if(Number.isInteger(land))lastLand=land;
+ shell.classList.add('active');
+ back.textContent=(mode==='industry')?'⚔ 戦争・領土へ戻る':'🏪 元の商店へ戻る';
+ const url=mode==='war'?'./snow-battle-game.html?unified=1':mode==='defense'?'./snow-battle-game.html?unified=1&defense=1':'./territory-economy.html?unified=1&land='+lastLand;
+ frame.src=url;history.replaceState(null,'','./index.html?mode='+mode+(mode==='industry'?'&land='+lastLand:''));
 }
 document.getElementById('frost-unified-entry').onclick=()=>show('war');
+document.getElementById('frost-defend-now').onclick=()=>show('defense');
 back.onclick=()=>show(current==='industry'?'war':'shop');
 window.addEventListener('message',e=>{
-if(e.origin!==location.origin||e.source!==frame.contentWindow||!e.data||e.data.app!=='frost-unified')return;
-if(e.data.action==='shop')show('shop');
-if(e.data.action==='war')show('war');
-if(e.data.action==='industry'&&Number.isInteger(e.data.land)&&e.data.land>=0&&e.data.land<5)show('industry',e.data.land);
+ if(e.origin!==location.origin||e.source!==frame.contentWindow||!e.data||e.data.app!=='frost-unified')return;
+ if(e.data.action==='shop')show('shop');
+ if(e.data.action==='war')show('war');
+ if(e.data.action==='industry'&&Number.isInteger(e.data.land)&&e.data.land>=0&&e.data.land<5)show('industry',e.data.land);
+ if(e.data.action==='defenseWon'){localStorage.removeItem(PENDING_ATTACK);scheduleNext(false)}
 });
 const p=new URLSearchParams(location.search),mode=p.get('mode'),land=Number(p.get('land')||0);
-if(mode==='war')show('war');else if(mode==='industry'&&Number.isInteger(land)&&land>=0&&land<5)show('industry',land);
+if(mode==='war')show('war');else if(mode==='defense')show('defense');else if(mode==='industry'&&Number.isInteger(land)&&land>=0&&land<5)show('industry',land);
+setInterval(updateAttackAlert,2000);setTimeout(updateAttackAlert,500);
 })();
 </script></body></html>
 
