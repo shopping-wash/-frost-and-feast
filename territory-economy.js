@@ -74,7 +74,7 @@ g.position.set((from.x+to.x)/2,0,(from.z+to.z)/2);g.rotation.y=Math.atan2(dx,dz)
 box(g,0x354f58,0,.85,0,1.55,.22,len,true);
 for(let i=0;i<12;i++){const roller=mesh(g,'cyl',0x7c9b9d,0,.99,-len/2+.45+i*(len-.9)/11,.64,.13,.64);roller.rotation.z=Math.PI/2}
 for(const side of [-.85,.85])box(g,0xe6b75e,side,1.06,0,.13,.32,len);
-const goods=[];for(let i=0;i<5;i++){const meat=state.stage===3?new T.Mesh(katanaGeo,katanaMat):mesh(g,'cyl',0xa75b38,0,1.2,0,.28,.16,.28);if(state.stage===3){meat.position.set(0,1.48,0);meat.rotation.z=Math.PI/2;g.add(meat)}goods.push(meat)}
+const goods=[];for(let i=0;i<5;i++){const item=conveyorProduct();g.add(item);goods.push(item)}
 machines.push({type:'conveyor',g,len,goods});
 label('ベルトコンベア：加工品を運搬',.5,2.9,2.7,1.35);
 }
@@ -156,15 +156,51 @@ const pommel=new T.BoxGeometry(.135,.065,.135);pommel.translate(0,-.60,0);add(po
 const merged=mergeGeometries(parts,false);parts.forEach(g=>g.dispose());return merged;
 }
 const katanaGeo=katanaGeometry(),katanaMat=new T.MeshStandardMaterial({vertexColors:true,metalness:.68,roughness:.29});
+function productGeometry(index){
+if(index===3)return katanaGeo;
+const parts=[];
+const add=(g,color)=>{const c=new T.Color(color),colors=[];for(let i=0;i<g.attributes.position.count;i++)colors.push(c.r,c.g,c.b);g.setAttribute('color',new T.Float32BufferAttribute(colors,3));parts.push(g)};
+const box=(w,h,d,x,y,z,color)=>{const g=new T.BoxGeometry(w,h,d);g.translate(x,y,z);add(g,color)};
+const cyl=(top,bottom,h,x,y,z,color,n=12)=>{const g=new T.CylinderGeometry(top,bottom,h,n);g.translate(x,y,z);add(g,color)};
+if(index===0){ // Baked bread loaf: brown crust with three distinct pale scoring cuts.
+const g=new T.SphereGeometry(.34,14,10);g.scale(1.3,.68,.82);add(g,0xb86c30);
+for(let i=-1;i<=1;i++)box(.045,.02,.37,i*.18,.236,0,0xf1d29a);
+}else if(index===1){ // Stacked milled planks, distinct from the round logs.
+for(let i=0;i<3;i++){box(.79,.14,.24,0,-.12+i*.16,0,0xc78b4f);box(.78,.018,.245,0,-.04+i*.16,0,0xe6b679)}
+}else if(index===2){ // Solid steel ingot with a chamfered upper profile.
+const shape=new T.Shape();shape.moveTo(-.37,-.13);shape.lineTo(.37,-.13);shape.lineTo(.27,.12);shape.lineTo(-.27,.12);shape.closePath();
+const g=new T.ExtrudeGeometry(shape,{depth:.42,bevelEnabled:true,bevelThickness:.018,bevelSize:.018,bevelSegments:1});g.translate(0,0,-.21);add(g,0xa9bac7);
+box(.32,.012,.23,0,.14,0,0xe6f0f4);
+}else{ // Luxury jewelry: gold pedestal, blue gemstone, and gold band.
+cyl(.26,.31,.12,0,-.13,0,0xc79a4d);
+const torus=new T.TorusGeometry(.19,.055,7,18);torus.rotateX(Math.PI/2);torus.translate(0,.07,0);add(torus,0xf0c95c);
+const gem=new T.OctahedronGeometry(.19,0);gem.translate(0,.25,0);add(gem,0x50c5f3);
+}
+const out=mergeGeometries(parts,false);parts.forEach(g=>g.dispose());return out;
+}
+const productGeometries=[0,1,2,3,4].map(productGeometry);
+const productMaterial=new T.MeshStandardMaterial({vertexColors:true,metalness:.28,roughness:.48});
+function conveyorProduct(){const mesh=new T.Mesh(productGeometries[state.stage],state.stage===3?katanaMat:productMaterial);mesh.position.set(0,1.42,0);mesh.rotation.z=state.stage===3?Math.PI/2:0;return mesh}
+
 let goodsStage=-1;
-function updateProductModels(){if(goodsStage===state.stage)return;goodsStage=state.stage;if(rawInst.geometry!==rawGeo)rawInst.geometry.dispose();if(foodInst.geometry!==foodGeo&&foodInst.geometry!==katanaGeo)foodInst.geometry.dispose();if(state.stage===0){rawInst.geometry=rawGeo;foodInst.geometry=foodGeo}else if(state.stage===1){rawInst.geometry=new T.SphereGeometry(.32,8,5);rawInst.geometry.scale(.65,.35,1.4);foodInst.geometry=rawInst.geometry.clone()}else if(state.stage===2){rawInst.geometry=new T.ConeGeometry(.20,.34,7);rawInst.geometry.rotateZ(Math.PI/2);foodInst.geometry=new T.CylinderGeometry(.3,.2,.17,10)}else if(state.stage===3){rawInst.geometry=new T.DodecahedronGeometry(.25,0);foodInst.geometry=katanaGeo}else{rawInst.geometry=new T.CylinderGeometry(.12,.18,.32,8);foodInst.geometry=new T.CylinderGeometry(.3,.3,.18,3)}boneInst.visible=state.stage===0;foodInst.material=state.stage===3?katanaMat:mat([0x98492f,0xbd854a,0xe4a54e,0xf3d370,0xf2cb5c][state.stage])}
+function updateProductModels(){
+if(goodsStage===state.stage)return;goodsStage=state.stage;
+if(rawInst.geometry!==rawGeo&&rawInst.geometry!==foodInst.geometry)rawInst.geometry.dispose();
+if(foodInst.geometry!==foodGeo&&!productGeometries.includes(foodInst.geometry))foodInst.geometry.dispose();
+if(state.stage===0){rawInst.geometry=new T.CylinderGeometry(.18,.23,.18,9);foodInst.geometry=productGeometries[0]}
+else if(state.stage===1){rawInst.geometry=new T.CylinderGeometry(.17,.17,.62,9);rawInst.geometry.rotateZ(Math.PI/2);foodInst.geometry=productGeometries[1]}
+else if(state.stage===2){rawInst.geometry=new T.DodecahedronGeometry(.25,0);foodInst.geometry=productGeometries[2]}
+else if(state.stage===3){rawInst.geometry=new T.DodecahedronGeometry(.25,0);foodInst.geometry=productGeometries[3]}
+else{rawInst.geometry=new T.BoxGeometry(.38,.35,.35);foodInst.geometry=productGeometries[4]}
+boneInst.visible=false;foodInst.material=state.stage===3?katanaMat:productMaterial;
+}
 // Batch all animated model parts by shared geometry/material to reduce draw calls.
 const actorBatches=new Map();actors.visible=false;
 function renderActors(){actors.updateMatrixWorld(true);for(const b of actorBatches.values())b.count=0;actors.traverse(o=>{if(!o.isMesh)return;let ancestor=o;while(ancestor!==actors){if(!ancestor.visible)return;ancestor=ancestor.parent}const key=o.geometry.uuid+':'+o.material.uuid;let b=actorBatches.get(key);if(!b){b=new T.InstancedMesh(o.geometry,o.material,4096);b.instanceMatrix.setUsage(T.DynamicDrawUsage);b.frustumCulled=false;b.castShadow=true;b.receiveShadow=true;b.count=0;actorBatches.set(key,b);scene.add(b)}if(b.count<4096)b.setMatrixAt(b.count++,o.matrixWorld)});for(const b of actorBatches.values())b.instanceMatrix.needsUpdate=true}
 
 function setI(obj,i,x,y,z,s=1,rot=0){dummy.position.set(x,y,z);dummy.rotation.set(0,rot,0);dummy.scale.set(s,s,s);dummy.updateMatrix();obj.setMatrixAt(i,dummy.matrix)}
-function goods(n,x,y,z,kind,cols=3){n=Math.min(n,180);for(let j=0;j<n;j++){const c=j%cols,row=Math.floor(j/cols);const xx=x+(c-(cols-1)/2)*.56,yy=y+row*.15,zz=z+(cols>3?Math.floor(c/3)*.4:0);if(kind==='raw'&&ri<900){setI(rawInst,ri,xx,yy,zz);setI(boneInst,ri++,xx+.08,yy+.008,zz)}else if(kind==='food'&&fi<900)setI(foodInst,fi++,xx,yy,zz);else if(kind==='cash'&&bi<900){setI(billInst,bi,xx,yy*.6+.4,zz);setI(bandInst,bi++,xx,yy*.6+.4,zz)}}}
-function renderGoods(){updateProductModels();ri=fi=bi=0;rawInst.material=mat(cfg.color);for(const a of [player,...workers]){const n=a.userData.raw,m=a.userData.cooked;const v=new T.Vector3(0,0,-.27).applyAxisAngle(new T.Vector3(0,1,0),a.rotation.y);goods(n,a.position.x+v.x,2.12,a.position.z+v.z,'raw',2);goods(m,a.position.x+v.x,2.12+Math.ceil(n/2)*.15,a.position.z+v.z,'food',2);if(a===player&&state.money>0){const bills=Math.min(90,Math.max(1,Math.ceil(state.money/50)));goods(bills,a.position.x+v.x,a===player?2.2+Math.ceil((n+m)/2)*.15:2.2,a.position.z+v.z,'cash',3)}}goods(p.raw,-5.4,1.5,-1.8,'raw',4);goods(p.cooked,-2.8,1.45,-.3,'food',2);goods(p.stock,3.5,1.4,5.3,'food',3);goods(Math.ceil(p.cash/cfg.price)*3,6.7,.6,2.8,'cash',4);rawInst.count=boneInst.count=ri;foodInst.count=fi;billInst.count=bandInst.count=bi;for(const o of instanced)o.instanceMatrix.needsUpdate=true}
+function goods(n,x,y,z,kind,cols=3){n=Math.min(n,180);for(let j=0;j<n;j++){const c=j%cols,row=Math.floor(j/cols);const xx=x+(c-(cols-1)/2)*.56,yy=y+row*.15,zz=z+(cols>3?Math.floor(c/3)*.4:0);if(kind==='raw'&&ri<900){setI(rawInst,ri++,xx,yy,zz)}else if(kind==='food'&&fi<900)setI(foodInst,fi++,xx,yy,zz);else if(kind==='cash'&&bi<900){setI(billInst,bi,xx,yy*.6+.4,zz);setI(bandInst,bi++,xx,yy*.6+.4,zz)}}}
+function renderGoods(){updateProductModels();ri=fi=bi=0;rawInst.material=mat(cfg.color);for(const a of [player,...workers]){const n=a.userData.raw,m=a.userData.cooked;const v=new T.Vector3(0,0,-.27).applyAxisAngle(new T.Vector3(0,1,0),a.rotation.y);goods(n,a.position.x+v.x,2.12,a.position.z+v.z,'raw',2);goods(m,a.position.x+v.x,2.12+Math.ceil(n/2)*.15,a.position.z+v.z,'food',2);if(a===player&&state.money>0){const bills=Math.min(90,Math.max(1,Math.ceil(state.money/50)));goods(bills,a.position.x+v.x,a===player?2.2+Math.ceil((n+m)/2)*.15:2.2,a.position.z+v.z,'cash',3)}}goods(p.raw,-5.4,1.5,-1.8,'raw',4);goods(p.cooked,-2.8,1.45,-.3,'food',2);goods(p.stock,3.5,1.4,5.3,'food',3);goods(Math.ceil(p.cash/cfg.price)*3,6.7,.6,2.8,'cash',4);rawInst.count=ri;boneInst.count=0;foodInst.count=fi;billInst.count=bandInst.count=bi;for(const o of instanced)o.instanceMatrix.needsUpdate=true}
 let audioCtx=null,nextNote=0,noteIndex=0;const tune=[0,7,12,7,4,7,12,16,2,9,14,9,5,9,14,17,4,11,16,11,7,11,16,19,5,12,17,12,7,12,19,17];
 function tone(freq,dur=.12,type='sine',volume=.06,when=0){if(!audioCtx||audioCtx.state!=='running')return;const at=audioCtx.currentTime+when,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,at);g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(volume,at+.01);g.gain.exponentialRampToValueAtTime(.0001,at+dur);o.connect(g);g.connect(audioCtx.destination);o.start(at);o.stop(at+dur+.03)}
 function sfx(type){if(!state.sfx)return;const fs={hit:110,pick:480,cook:220,sale:660,money:880,buy:523,clear:784};tone(fs[type]||400,.11,type==='hit'?'triangle':'sine',.045);if(type==='buy'||type==='clear')for(let i=1;i<4;i++)tone((fs[type]||523)*[1,1.25,1.5,2][i],.25,'triangle',.04,i*.1)}
