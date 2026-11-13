@@ -3910,11 +3910,27 @@ function scheduleNext(first=false){const h=loadHome();h.nextAttack=Date.now()+ra
 function unlockedStages(){const v=shopSave();const n=Math.max(0,Math.min(4,Number(v?.unlocked)||0));return Array.from({length:n+1},(_,i)=>i)}
 function shopIsPlaying(){return current==='shop'&&(!cover||getComputedStyle(cover).display==='none'||cover.hidden)}
 function chooseAttack(){const h=loadHome(),eligible=unlockedStages().filter(i=>!h.lost.includes(i));if(!eligible.length)return null;return eligible[Math.floor(Math.random()*eligible.length)]}
+function makeOccupationNonBlocking(){
+ occupation.style.setProperty('position','fixed','important');
+ occupation.style.setProperty('inset','auto 10px calc(env(safe-area-inset-bottom) + 92px) 10px','important');
+ occupation.style.setProperty('width','auto','important');
+ occupation.style.setProperty('height','auto','important');
+ occupation.style.setProperty('max-height','none','important');
+ occupation.style.setProperty('z-index','3','important');
+ occupation.style.setProperty('background','transparent','important');
+ occupation.style.setProperty('backdrop-filter','none','important');
+ occupation.style.setProperty('pointer-events','none','important');
+ const card=document.getElementById('frost-occupation-card');
+ card.style.setProperty('pointer-events','auto','important');
+ card.style.setProperty('max-width','320px','important');
+ card.style.setProperty('padding','10px','important');
+}
+makeOccupationNonBlocking();
 function updateAttackAlert(){
  if(current!=='shop'){alertBox.classList.remove('show');occupation.classList.remove('show');return}
  const h=loadHome(),save=shopSave(),activeStage=Math.max(0,Math.min(4,Number(save?.stage)||0));
  if(h.lost.includes(activeStage)&&shopIsPlaying()&&occupationDismissedStage!==activeStage){
-   alertBox.classList.remove('show');occupationTitle.textContent='⚔ '+STAGE_NAMES[activeStage]+'は敵に占領されています';retakeCurrent.dataset.stage=String(activeStage);occupation.classList.add('show');return;
+   alertBox.classList.remove('show');occupationTitle.textContent='⚔ '+STAGE_NAMES[activeStage]+'は敵に占領されています';retakeCurrent.dataset.stage=String(activeStage);makeOccupationNonBlocking();occupation.classList.add('show');return;
  }
  occupation.classList.remove('show');
  if(!h.lost.includes(activeStage))occupationDismissedStage=null;
