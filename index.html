@@ -3871,6 +3871,14 @@ three/build/three.module.js:
 #frost-attack-alert.occupied #frost-defend-now{background:#8a5b1c;border-color:#ffd38b}
 #frost-occupation-lock{position:fixed;inset:0;z-index:88;display:none;align-items:center;justify-content:center;padding:24px;background:#08131bb8;backdrop-filter:blur(5px);pointer-events:auto}
 #frost-occupation-lock.show{display:flex}
+/* Occupation notice must not block the game controls. */
+#frost-occupation-lock{inset:auto 12px calc(env(safe-area-inset-bottom) + 100px) 12px;z-index:4;padding:0;background:none;backdrop-filter:none;pointer-events:none;justify-content:center}
+#frost-occupation-card{pointer-events:auto;width:min(100%,420px);padding:14px;box-shadow:0 8px 22px #0007}
+#frost-occupation-card strong{font-size:17px}
+#frost-occupation-card p{font-size:11px;margin-bottom:8px}
+#frost-occupation-card .frost-occupation-actions{display:flex;gap:8px}
+#frost-retake-current{flex:1;width:auto;font-size:13px;padding:10px}
+#frost-occupation-dismiss{flex:0 0 auto;background:#e9eddf;color:#243e43;border-radius:11px;padding:10px;font:700 13px system-ui}
 #frost-occupation-card{width:min(92vw,420px);background:linear-gradient(145deg,#1b2d3a,#3d2c1b);border:2px solid #d4a153;border-radius:18px;padding:20px;color:#fff;text-align:center;box-shadow:0 16px 44px #000b}
 #frost-occupation-card strong{display:block;font:900 22px/1.35 system-ui;color:#ffe0a3;margin-bottom:8px}
 #frost-occupation-card p{margin:0 0 14px;font:700 13px/1.6 system-ui;color:#edf5fa}
@@ -3878,14 +3886,14 @@ three/build/three.module.js:
 </style>
 <button id="frost-unified-entry" type="button">⚔ 戦争・領土拡大</button>
 <div id="frost-attack-alert"><strong id="frost-attack-title">⚠ 商店が攻められています！</strong><span id="frost-attack-text"></span><button id="frost-defend-now" type="button">🛡 今すぐ防衛する</button></div>
-<div id="frost-occupation-lock"><div id="frost-occupation-card"><strong id="frost-occupation-title">⚔ 敵に占領されています</strong><p>この拠点では事業を続けられません。奪還すると営業を再開できます。</p><button id="frost-retake-current" type="button">⚔ 奪還戦を開始</button></div></div>
+<div id="frost-occupation-lock"><div id="frost-occupation-card"><strong id="frost-occupation-title">⚔ 敵に占領されています</strong><p>この拠点では事業を続けられません。奪還すると営業を再開できます。</p><div class="frost-occupation-actions"><button id="frost-retake-current" type="button">⚔ 奪還戦を開始</button><button id="frost-occupation-dismiss" type="button">閉じる</button></div></div></div>
 <div id="frost-unified-shell"><iframe id="frost-unified-frame" title="雪原の商店：戦争・新産業" allow="autoplay"></iframe><button id="frost-unified-back" type="button">🏪 元の商店へ戻る</button></div>
 <script>
 (function(){
 const shell=document.getElementById('frost-unified-shell'),frame=document.getElementById('frost-unified-frame'),back=document.getElementById('frost-unified-back'),alertBox=document.getElementById('frost-attack-alert'),alertTitle=document.getElementById('frost-attack-title'),alertText=document.getElementById('frost-attack-text'),actionBtn=document.getElementById('frost-defend-now'),occupation=document.getElementById('frost-occupation-lock'),occupationTitle=document.getElementById('frost-occupation-title'),retakeCurrent=document.getElementById('frost-retake-current'),cover=document.getElementById('cover');
 const HOME_KEY='frost-home-territory-v1',SHOP_KEY='frost-feast-save-v1';
 const STAGE_NAMES=['雪原のクマ肉商店','氷湖のフィッシュマーケット','温室の収穫市場','雪原のたまご農場','高原のミルク工房'];
-let current='shop',lastLand=0,currentBattle=null;
+let current='shop',lastLand=0,currentBattle=null,occupationDismissedStage=null;
 function shopSave(){try{return JSON.parse(localStorage.getItem(SHOP_KEY))}catch{return null}}
 function loadHome(){let h;try{h=JSON.parse(localStorage.getItem(HOME_KEY))}catch{}if(!h||typeof h!=='object')h={lost:[],pending:null,nextAttack:0};h.lost=Array.isArray(h.lost)?h.lost.filter(x=>Number.isInteger(x)&&x>=0&&x<5):[];h.pending=Number.isInteger(h.pending)&&h.pending>=0&&h.pending<5?h.pending:null;h.nextAttack=Number(h.nextAttack)||0;return h}
 function saveHome(h){localStorage.setItem(HOME_KEY,JSON.stringify(h))}
@@ -3897,10 +3905,11 @@ function chooseAttack(){const h=loadHome(),eligible=unlockedStages().filter(i=>!
 function updateAttackAlert(){
  if(current!=='shop'){alertBox.classList.remove('show');occupation.classList.remove('show');return}
  const h=loadHome(),save=shopSave(),activeStage=Math.max(0,Math.min(4,Number(save?.stage)||0));
- if(h.lost.includes(activeStage)&&shopIsPlaying()){
+ if(h.lost.includes(activeStage)&&shopIsPlaying()&&occupationDismissedStage!==activeStage){
    alertBox.classList.remove('show');occupationTitle.textContent='⚔ '+STAGE_NAMES[activeStage]+'は敵に占領されています';retakeCurrent.dataset.stage=String(activeStage);occupation.classList.add('show');return;
  }
  occupation.classList.remove('show');
+ if(!h.lost.includes(activeStage))occupationDismissedStage=null;
  if(h.pending!==null){
    alertBox.classList.remove('occupied');alertTitle.textContent='⚠ '+STAGE_NAMES[h.pending]+'が侵攻されています！';alertText.textContent='敵軍が接近中です。防衛戦で敵軍HPを0にすれば防衛成功、自軍HPが0になると占領されます。';actionBtn.textContent='🛡 今すぐ防衛する';actionBtn.dataset.stage=String(h.pending);actionBtn.dataset.retake='0';if(shopIsPlaying())alertBox.classList.add('show');return;
  }
@@ -3928,6 +3937,7 @@ function show(mode,land,retake=false){
 }
 document.getElementById('frost-unified-entry').onclick=()=>show('war');
 actionBtn.onclick=()=>{const stage=Number(actionBtn.dataset.stage),retake=actionBtn.dataset.retake==='1';if(Number.isInteger(stage))show('defense',stage,retake)};retakeCurrent.onclick=()=>{const stage=Number(retakeCurrent.dataset.stage);if(Number.isInteger(stage))show('defense',stage,true)};
+document.getElementById('frost-occupation-dismiss').onclick=()=>{occupationDismissedStage=Number(retakeCurrent.dataset.stage);occupation.classList.remove('show')};
 back.onclick=()=>show(current==='industry'?'war':'shop');
 window.addEventListener('message',e=>{
  if(e.origin!==location.origin||e.source!==frame.contentWindow||!e.data||e.data.app!=='frost-unified')return;
